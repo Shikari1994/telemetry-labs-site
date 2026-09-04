@@ -2647,3 +2647,417 @@ body.stack-menu-open { overflow: hidden; }
   .partnerTickerViewport { overflow-x: auto; }
   .pageTransitionColumn { transition: none !important; }
 }
+
+/* ========================================================================== */
+/* P12 — TYPE CALM-DOWN + RESPONSIVE PASS                                     */
+/* Display type stops being a brutalist wall: sizes come down to a scale that */
+/* actually fits its column, tracking and leading relax to readable values,   */
+/* and every oversized heading is allowed to wrap instead of clipping.        */
+/* ========================================================================== */
+
+:root {
+  /* One shared display scale so headings stop drifting per-section. */
+  --h-hero: clamp(42px, 8.2vw, 128px);
+  --h-1: clamp(34px, 5.4vw, 74px);
+  --h-2: clamp(28px, 4vw, 54px);
+  --h-3: clamp(22px, 2.6vw, 34px);
+  --track-display: -.03em;
+  --leading-display: .98;
+}
+
+/* ---- Global display normalisation --------------------------------------- */
+.heroTitle,
+.labMainHeading,
+.labMobileHeader h2,
+.signalPathHeader h2,
+.equipmentLabHeader h2,
+.systemsShowcaseHeader h2,
+.softwareLabHeader h2,
+.engineeringNotesHeader h2,
+.faqLabHeader h2,
+.programsHeader h2,
+.proofHeader h2,
+.presenceHeader h2,
+.notesHeader h2,
+.researchHeader h2,
+.nextStageHead h2,
+.footerLabTitle,
+.programCard h3,
+.systemCardMeta h3,
+.labState h3,
+.stackMenuIntro h2 {
+  /* Long Russian compounds must be able to break rather than clip. */
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: manual;
+  max-width: 100%;
+}
+
+.labMainHeading,
+.labMobileHeader h2,
+.signalPathHeader h2,
+.equipmentLabHeader h2,
+.systemsShowcaseHeader h2,
+.softwareLabHeader h2,
+.engineeringNotesHeader h2,
+.faqLabHeader h2,
+.programsHeader h2,
+.proofHeader h2,
+.presenceHeader h2,
+.notesHeader h2,
+.researchHeader h2 {
+  font-size: var(--h-1) !important;
+  line-height: var(--leading-display) !important;
+  letter-spacing: var(--track-display) !important;
+  font-weight: 800 !important;
+}
+
+.programCard h3,
+.systemCardMeta h3,
+.labState h3,
+.solutionOutputColumn h2,
+.nextStageHead h2,
+.stackMenuIntro h2 {
+  font-size: var(--h-2) !important;
+  line-height: 1.02 !important;
+  letter-spacing: -.025em !important;
+}
+
+.proofCard h3,
+.presenceCard h3,
+.researchCardBody h3,
+.equipmentLabRow strong {
+  letter-spacing: -.02em;
+  line-height: 1.06;
+}
+
+/* Equipment rows: the title column was sized for Latin, not for uppercase
+   Cyrillic like "РЕЗИСТИВИМЕТРИЯ", which overran into the description. */
+.equipmentLabRow { grid-template-columns: 48px 60px minmax(0, 1.5fr) minmax(0, 1.7fr) 96px 30px; }
+.equipmentLabRow h3 {
+  font-size: clamp(18px, 1.7vw, 27px);
+  line-height: 1.04;
+  letter-spacing: -.025em;
+  overflow-wrap: break-word;
+}
+
+/* ---- Hero title ---------------------------------------------------------- */
+.heroTitle {
+  font-size: var(--h-hero);
+  line-height: 1.02;
+  letter-spacing: -.035em;
+  font-weight: 800;
+  font-variation-settings: "wght" 780;
+}
+/* The two lines are separate blocks purely for the reveal mask; they must not
+   force a single unbreakable run of text. */
+.heroTitleLine {
+  display: block;
+  overflow: hidden;
+  white-space: normal;
+  height: auto;
+  padding-bottom: .08em;
+}
+.heroTitleLineSecond { padding-left: 0; margin-left: 0; }
+.heroTitleLineSecond::after {
+  height: .07em;
+  width: .34em;
+  margin-bottom: .1em;
+}
+
+/* ---- Footer wordmark ----------------------------------------------------- */
+.footerLabTitle {
+  font-size: clamp(44px, 11vw, 180px) !important;
+  line-height: .9 !important;
+  letter-spacing: -.035em !important;
+}
+
+/* ---- Long-word safety net ------------------------------------------------- */
+.solutionCardCopy h2,
+.productSectionTitle h2,
+.catalogCardBottom h2,
+.catalogHeroCopy h1,
+.productHeroCopy h1,
+.requestHeroCopy h1,
+.solutionHeroCopy h1,
+.softwareHeroCopy h1,
+.engineeringHeroCopy h1,
+.productNextLink span {
+  letter-spacing: -.035em;
+  line-height: .98;
+  overflow-wrap: break-word;
+  hyphens: manual;
+}
+.catalogHeroCopy h1,
+.productHeroCopy h1,
+.requestHeroCopy h1,
+.solutionHeroCopy h1,
+.softwareHeroCopy h1,
+.engineeringHeroCopy h1 { font-size: clamp(40px, 7vw, 100px); }
+.productSectionTitle h2,
+.solutionCardCopy h2,
+.solutionOutputColumn h2 { font-size: var(--h-1); }
+.catalogCardBottom h2 { font-size: var(--h-2); }
+.productNextLink span { font-size: clamp(34px, 6vw, 88px); }
+.productNextLink b { font-size: clamp(26px, 3.4vw, 50px); }
+
+/* ---- Nothing may push the page sideways ---------------------------------- */
+html, body { max-width: 100%; overflow-x: hidden; }
+img, video, svg, canvas { max-width: 100%; }
+
+/* ========================================================================== */
+/* Mobile navigation — the stack overlay doubles as the small-screen menu.     */
+/* ========================================================================== */
+
+.navToggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 56px;
+  padding: 0 14px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font: 700 9px/1 var(--mono);
+  letter-spacing: .06em;
+  cursor: pointer;
+}
+.navToggle i {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  transition: background .18s ease;
+}
+.navToggle i::before,
+.navToggle i::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  transition: transform .22s ease;
+}
+.navToggle i::before { top: -6px; }
+.navToggle i::after { top: 6px; }
+.navToggle[aria-expanded="true"] i { background: transparent; }
+.navToggle[aria-expanded="true"] i::before { transform: translateY(6px) rotate(45deg); }
+.navToggle[aria-expanded="true"] i::after { transform: translateY(-6px) rotate(-45deg); }
+
+@media (max-width: 900px) {
+  .siteHeader {
+    grid-template-columns: 1fr auto auto;
+    min-height: 56px;
+    height: auto;
+  }
+  .siteHeader .brand { padding-inline: 16px; border-right: 0; }
+  .siteHeader .brandText { display: block; font-size: 8px; }
+  .mainNav, .ecosystemButton { display: none !important; }
+  .headerTools { display: flex; border-left: 0; }
+  .siteHeader .headerCta { min-height: 56px; padding-inline: 16px; font-size: 8px; }
+  .navToggle { display: inline-flex; }
+
+  /* The system-stack panel becomes the mobile menu. */
+  .stackMenu { display: grid !important; inset: 56px 0 0; }
+  .stackMenuGrid { grid-template-columns: 1fr !important; overflow-y: auto; }
+  .stackMenuIntro,
+  .stackMenuGroup { grid-column: 1 / -1 !important; }
+  .stackMenuIntro { min-height: auto; padding: 24px 0 28px; border-right: 0; }
+  .stackMenuIntro p { margin-top: 18px; }
+  .stackMenuTop, .stackMenuBottom { font-size: 7px; }
+  .stackMenuBottom strong { font-size: 8px; }
+}
+
+/* Tablet range: the absolutely-positioned readings panel was still using its
+   desktop 33.333% insets and slid on top of the right-hand hero column. */
+@media (min-width: 761px) and (max-width: 1024px) {
+  .hero { grid-template-rows: 44px minmax(420px, 1fr) auto auto; min-height: auto; }
+  .heroReadings {
+    position: relative;
+    grid-column: 1 / -1;
+    grid-row: 4;
+    left: auto; right: auto; bottom: auto;
+    height: auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-inline: calc(var(--gutter) * -1);
+    border-inline: 0;
+    backdrop-filter: none;
+  }
+  .heroReading { min-height: 66px; }
+  .hero .heroCopy.heroCopyLeft,
+  .hero .heroCopy.heroCopyRight { align-self: stretch; padding-bottom: 30px; grid-row: 3; }
+  .hero .heroCopy.heroCopyLeft { grid-column: 1 / 7; }
+  .hero .heroCopy.heroCopyRight { grid-column: 7 / 13; }
+  /* Too little room for the signal-sample card once the readings move inline. */
+  .heroCornerPanel { display: none; }
+  /* Keep the probe inside the middle band instead of running over the copy. */
+  .heroObjectWrap { width: clamp(180px, 26vw, 250px); height: 46%; top: 16%; }
+}
+
+@media (max-width: 760px) {
+  /* Hero rebuilt as a plain vertical stack: title, object, copy, readings. */
+  .hero {
+    min-height: auto;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: auto auto auto auto auto auto;
+    padding: 0 16px 0;
+  }
+  .heroTitle {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    position: static;
+    align-self: start;
+    padding: 30px 0 0;
+    font-size: clamp(38px, 12.5vw, 62px);
+    line-height: 1.02;
+    letter-spacing: -.03em;
+  }
+  .heroObjectWrap {
+    position: relative;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    left: auto;
+    top: auto;
+    transform: none;
+    width: min(58vw, 220px);
+    height: 300px;
+    margin: 26px auto 8px;
+    opacity: 1;
+    justify-self: center;
+  }
+  .heroCopyLeft, .heroCopyRight {
+    grid-column: 1 / -1;
+    padding: 16px 0;
+  }
+  .heroCopyLeft { grid-row: 4; }
+  .heroCopyRight { grid-row: 5; border-top: 1px solid var(--line); }
+  .heroCopy p { font-size: 11px; line-height: 1.6; }
+  .heroReadings {
+    position: relative;
+    grid-column: 1 / -1;
+    grid-row: 6;
+    left: auto; right: auto; bottom: auto;
+    height: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-inline: -16px;
+    border-inline: 0;
+    backdrop-filter: none;
+  }
+  .heroReading { min-height: 62px; padding: 10px 14px; }
+  .heroReading:nth-child(3n) { border-right: 1px solid var(--line); }
+  .heroReading:nth-child(even) { border-right: 0; }
+  .heroReading { border-bottom: 1px solid var(--line); }
+  .heroReading strong { font-size: 15px; }
+  .heroTopMeta { grid-row: 1; font-size: 6px; letter-spacing: .06em; }
+
+  /* Section headers: single column, generous vertical rhythm. */
+  .programsHeader, .proofHeader, .faqLabHeader,
+  .presenceHeader, .notesHeader, .researchHeader,
+  .signalPathHeader, .equipmentLabHeader,
+  .systemsShowcaseHeader, .softwareLabHeader,
+  .engineeringNotesHeader {
+    display: block !important;
+    padding: 0 16px !important;
+  }
+  .programsHeader > div, .proofHeader > div, .faqLabHeader > div,
+  .presenceHeader > div, .notesHeader > div, .researchHeader > div {
+    grid-column: auto;
+    border: 0 !important;
+    padding: 8px 0 26px !important;
+  }
+  .programsHeader > span, .proofHeader > span, .faqLabHeader > span,
+  .presenceHeader > span, .notesHeader > span, .researchHeader > span {
+    display: block;
+    padding-top: 26px;
+  }
+  .programsHeader > p, .proofHeader > p, .faqLabHeader > p,
+  .presenceHeader > p, .notesHeader > p, .researchHeader > p {
+    grid-column: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0 0 28px !important;
+    border: 0 !important;
+    font-size: 11px;
+    line-height: 1.6;
+  }
+
+  .nextStageHead { grid-template-columns: 1fr; gap: 14px; }
+  .nextStageHead > span { padding-top: 0; }
+  .nextStageHead > p { grid-column: 1; max-width: none; font-size: 14px; }
+
+  /* Rails that assumed desktop width. */
+  .stackBand { grid-template-columns: 1fr; }
+  .stackBandLead { border-right: 0; border-bottom: 1px solid var(--line); }
+  .stackBandCells { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stackBandCell { border-bottom: 1px solid var(--line-soft); }
+  .proofCardMetric strong { font-size: clamp(26px, 9vw, 42px); }
+  .footerLabTitle { font-size: clamp(40px, 14vw, 72px) !important; }
+
+  /* Lab narrative mobile cards: the 1fr track was being blown out by the
+     38px headline, so the whole card overflowed its own section. */
+  .labMobile { overflow-x: hidden; }
+  .labMobileState { grid-template-columns: 34px minmax(0, 1fr); }
+  .labMobileState > * { min-width: 0; }
+  .labMobileState h3 { font-size: clamp(24px, 7.5vw, 32px); line-height: 1.04; overflow-wrap: break-word; }
+  .labMobileHeader h2 { font-size: clamp(34px, 11vw, 54px) !important; }
+
+  /* Equipment rows drop the desktop six-column layout entirely. */
+  .equipmentLabRow {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "idx code arrow"
+      "idx title title"
+      "idx desc desc"
+      "idx meta meta";
+    align-items: start;
+    row-gap: 6px;
+    padding: 18px 0 18px 4px;
+    min-height: 0;
+  }
+  .equipmentLabIndex { grid-area: idx; }
+  .equipmentLabCode { grid-area: code; }
+  .equipmentLabRow h3 { grid-area: title; font-size: clamp(20px, 6.4vw, 28px); }
+  .equipmentLabRow p { grid-area: desc; max-width: none; font-size: 11px; }
+  .equipmentLabRow small { grid-area: meta; text-align: left; }
+  .equipmentLabRow b { grid-area: arrow; justify-self: end; }
+  .equipmentAsideStack { display: none; }
+
+  /* Snap-rail cards: keep their contents inside the 88vw track. */
+  .systemCard, .noteCard { min-width: 0; overflow: hidden; }
+  .systemCard > *, .noteCard > * { min-width: 0; }
+  .systemCardSchematic { max-width: 100%; }
+
+  /* Comfortable tap targets everywhere. */
+  .heroButton, .orangeButton, .primaryAction, .submitAction,
+  .secondaryAction, .productChip, .nextStageSubmit { min-height: 46px; }
+}
+
+/* Route hero titles: single long Russian words (ОБОРУДОВАНИЕ, КОНФИГУРАЦИЯ)
+   must shrink to fit rather than break across a line. */
+@media (max-width: 760px) {
+  .catalogHeroCopy h1,
+  .productHeroCopy h1,
+  .requestHeroCopy h1,
+  .solutionHeroCopy h1,
+  .softwareHeroCopy h1,
+  .engineeringHeroCopy h1 {
+    font-size: clamp(30px, 8.4vw, 44px);
+    overflow-wrap: normal;
+    line-height: 1.02;
+  }
+  .productSectionTitle h2,
+  .solutionCardCopy h2,
+  .catalogCardBottom h2 { overflow-wrap: normal; }
+}
+
+@media (max-width: 420px) {
+  :root { --gutter: 14px; }
+  .heroTitle { font-size: clamp(34px, 11.5vw, 48px); }
+  .siteHeader .brandText { display: none; }
+  .stackBandCells { grid-template-columns: 1fr; }
+}

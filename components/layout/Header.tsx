@@ -72,6 +72,19 @@ export function Header() {
             Запросить ТКП <span>↗</span>
           </button>
         </div>
+
+        {/* Small screens lose the inline nav and the SYSTEM STACK button, so the
+            same overlay is reached through this toggle instead. */}
+        <button
+          className="navToggle"
+          type="button"
+          aria-expanded={stackOpen}
+          aria-controls="system-stack-panel"
+          aria-label={stackOpen ? "Закрыть меню" : "Открыть меню"}
+          onClick={() => setStackOpen((value) => !value)}
+        >
+          <i aria-hidden="true" />
+        </button>
       </header>
 
       <div
