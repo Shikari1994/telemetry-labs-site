@@ -5,7 +5,7 @@ export function Footer() {
   return (
     <footer className="footerLab" id="contact">
       <div className="footerLabTop">
-        <span>[ 13 ]</span>
+        <span>[ 12 ]</span>
         <p className="eyebrow" data-scramble data-scramble-text="ENGINEERING REQUEST / NEXT SYSTEM">ENGINEERING REQUEST / NEXT SYSTEM</p>
       </div>
 

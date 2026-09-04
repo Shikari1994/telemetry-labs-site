@@ -77,7 +77,7 @@ export function NextStage() {
   return (
     <section className="nextStage" aria-labelledby={`${emailId}-heading`}>
       <div className="nextStageHead">
-        <span>[ 12 ]</span>
+        <span>[ 11 ]</span>
         <div>
           <p className="eyebrow" data-scramble data-scramble-text="NEXT STEP / ENGINEERING CONTACT">
             NEXT STEP / ENGINEERING CONTACT
