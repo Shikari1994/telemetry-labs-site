@@ -11,9 +11,16 @@ export function Hero() {
         <span>LAT 53.45 / LINK STABLE</span>
       </div>
 
-      <h1 className="heroTitle" aria-label="Сигнал из скважины">
-        <span className="heroTitleLine"><span data-hero-word>СИГНАЛ</span></span>
-        <span className="heroTitleLine heroTitleLineSecond"><span data-hero-word>ИЗ СКВАЖИНЫ</span></span>
+      <h1 className="heroTitle heroWordmark" aria-label="Telemetry Systems">
+        <span className="heroTitleLine">
+          <span className="heroBrandLockup" data-hero-word>
+            <span className="heroBrandMark" aria-hidden="true">TS</span>
+            <span className="heroBrandText">
+              <span>TELEMETRY</span>
+              <span>SYSTEMS</span>
+            </span>
+          </span>
+        </span>
       </h1>
 
       <div className="heroObjectWrap" data-hero-object aria-hidden="true">
