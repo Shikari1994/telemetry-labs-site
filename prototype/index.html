@@ -1,0 +1,782 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Telemetry Systems — P2</title><style>:root {
+  --bg: #ecebe6;
+  --surface: #f5f4ef;
+  --ink: #11110f;
+  --muted: #66655e;
+  --line: rgba(17,17,15,.28);
+  --line-soft: rgba(17,17,15,.14);
+  --accent: #ff5a20;
+  --gutter: clamp(18px, 2.2vw, 38px);
+  --display: Arial, Helvetica, sans-serif;
+  --mono: "Courier New", Courier, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; background: var(--bg); }
+body { margin: 0; color: var(--ink); background: var(--bg); font-family: var(--display); }
+a { color: inherit; text-decoration: none; }
+button, input, textarea, select { font: inherit; }
+::selection { background: var(--accent); color: white; }
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+  opacity: .08;
+  background-image: linear-gradient(rgba(0,0,0,.4) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,.4) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to bottom, #000, transparent 80%);
+}
+
+.siteHeader {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 3fr 6fr 3fr;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(12px);
+}
+.brand, .headerCta, .mainNav { padding: 14px var(--gutter); }
+.brand { display: flex; gap: 12px; align-items: center; border-right: 1px solid var(--line); }
+.brandMark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--ink); color: var(--bg); font: 700 12px/1 var(--mono); }
+.brandText { font: 700 11px/1.03 var(--mono); letter-spacing: .04em; }
+.mainNav { display: flex; align-items: center; justify-content: center; gap: clamp(18px,3vw,54px); font: 700 12px/1 var(--mono); text-transform: uppercase; }
+.mainNav a, .headerCta, .textLink, .bigLink { transition: opacity .2s ease; }
+.mainNav a:hover, .headerCta:hover, .textLink:hover, .bigLink:hover { opacity: .55; }
+.headerCta { display: flex; justify-content: flex-end; align-items: center; border-left: 1px solid var(--line); font: 700 12px/1 var(--mono); text-transform: uppercase; }
+
+.sectionGrid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0,1fr));
+  padding-inline: var(--gutter);
+  border-bottom: 1px solid var(--line);
+  position: relative;
+}
+.sectionGrid::before, .sectionGrid::after { content: ""; position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-soft); pointer-events: none; }
+.sectionGrid::before { left: calc(var(--gutter) + (100% - 2 * var(--gutter)) / 4); }
+.sectionGrid::after { right: calc(var(--gutter) + (100% - 2 * var(--gutter)) / 4); }
+.eyebrow { font: 700 11px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.sectionIndex { grid-column: 1 / 2; padding-top: 28px; font: 700 11px/1 var(--mono); }
+.sectionIntro { grid-column: 3 / 12; padding: 26px 0 68px; }
+.sectionIntro h2, .software h2, .nextStage h2 { margin: 16px 0 0; font-size: clamp(44px, 6.4vw, 112px); line-height: .86; letter-spacing: -.065em; text-transform: uppercase; }
+
+.hero { min-height: calc(100vh - 76px); grid-template-rows: auto 1fr auto; overflow: hidden; }
+.heroKicker { grid-column: 1 / 5; padding-top: 30px; }
+.heroTitle { grid-column: 1 / 9; margin: 34px 0 70px; align-self: end; font-size: clamp(76px, 11vw, 186px); line-height: .74; letter-spacing: -.085em; text-transform: uppercase; font-weight: 900; z-index: 2; }
+.heroTitle em { color: var(--accent); font-style: normal; }
+.heroDescription { grid-column: 10 / 13; align-self: end; padding: 0 0 84px 26px; z-index: 3; }
+.heroDescription p { margin: 0 0 24px; max-width: 32ch; font-size: 15px; line-height: 1.4; }
+.textLink { font: 700 12px/1.2 var(--mono); text-transform: uppercase; border-bottom: 1px solid currentColor; padding-bottom: 4px; }
+.toolStage { position: absolute; width: min(28vw, 390px); height: 72%; right: 20%; top: 10%; z-index: 1; }
+.toolAxis { position: absolute; left: 50%; top: -10%; bottom: -10%; width: 1px; background: var(--line); }
+.toolString { position: absolute; left: 50%; top: 4%; transform: translateX(-50%); width: clamp(70px, 7vw, 112px); display: flex; flex-direction: column; filter: drop-shadow(0 22px 34px rgba(0,0,0,.13)); }
+.toolCap { height: 54px; clip-path: polygon(20% 0,80% 0,100% 100%,0 100%); background: var(--ink); color: var(--bg); display: grid; place-items: center; font: 700 9px var(--mono); }
+.toolModule, .toolJoint { min-height: 82px; border: 1px solid var(--ink); border-top: 0; background: linear-gradient(90deg,#bdbcb7 0 12%,#f3f2ed 12% 42%,#c9c8c2 42% 58%,#f8f7f2 58% 88%,#bdbcb7 88%); display: grid; place-items: center; font: 700 10px var(--mono); }
+.toolModule.long { min-height: 115px; }
+.toolModule.hot { background: linear-gradient(90deg,#c0481d 0 12%,#ff6b34 12% 42%,#d54b1b 42% 58%,#ff7b49 58% 88%,#bf4118 88%); color: white; }
+.toolJoint { min-height: 132px; border-radius: 0 0 34px 34px; background: repeating-linear-gradient(135deg,#1b1b18 0 8px,#393833 8px 16px); color: white; }
+.toolLabel { position: absolute; font: 700 9px/1 var(--mono); white-space: nowrap; display: flex; gap: 10px; align-items: center; }
+.toolLabel::after { content: ""; height: 1px; width: 76px; background: var(--ink); display: block; }
+.toolLabel span { color: var(--accent); }
+.toolLabelA { left: -33%; top: 17%; }
+.toolLabelB { left: -22%; top: 34%; }
+.toolLabelC { left: 65%; top: 57%; flex-direction: row-reverse; }
+.toolLabelD { left: 70%; top: 79%; flex-direction: row-reverse; }
+.telemetryStrip { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(6,1fr); border-top: 1px solid var(--line); }
+.reading { min-height: 72px; padding: 15px 16px; border-right: 1px solid var(--line); display: flex; flex-direction: column; justify-content: space-between; }
+.reading:last-child { border-right: 0; }
+.reading span { font: 700 9px/1 var(--mono); color: var(--muted); }
+.reading strong { font-size: clamp(18px, 2vw, 30px); letter-spacing: -.04em; }
+
+.systemFlow { padding-top: 32px; padding-bottom: 0; }
+.flowRail { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5,1fr); border-top: 1px solid var(--line); }
+.flowStep { min-height: 220px; padding: 20px; border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+.flowStep:last-child { border-right: 0; }
+.flowNumber { font: 700 10px var(--mono); color: var(--accent); }
+.flowStep strong { margin-top: auto; font-size: clamp(18px,2.2vw,34px); letter-spacing: -.04em; }
+.flowStep p { margin: 8px 0 0; font: 12px/1.35 var(--mono); color: var(--muted); }
+
+.equipment { padding-top: 20px; }
+.equipmentList { grid-column: 1 / -1; border-top: 1px solid var(--line); }
+.equipmentRow { display: grid; grid-template-columns: 1fr 1fr 3fr 4fr 2fr auto; gap: 0; align-items: center; min-height: 116px; border-bottom: 1px solid var(--line); transition: background .2s ease, color .2s ease; }
+.equipmentRow:hover { background: var(--ink); color: var(--bg); }
+.equipmentRow > * { padding: 18px 16px; }
+.equipmentIndex, .equipmentCode, .equipmentSignal { font: 700 10px var(--mono); }
+.equipmentIndex { color: var(--accent); }
+.equipmentCode { font-size: 16px; }
+.equipmentRow h3 { margin: 0; font-size: clamp(22px,2.5vw,40px); letter-spacing: -.045em; text-transform: uppercase; }
+.equipmentRow p { margin: 0; max-width: 54ch; font-size: 14px; line-height: 1.4; }
+.equipmentSignal { color: var(--muted); }
+.equipmentRow:hover .equipmentSignal { color: #aaa; }
+.equipmentArrow { font-size: 24px; }
+
+.software { min-height: 820px; padding-top: 28px; padding-bottom: 70px; }
+.softwareCopy { grid-column: 2 / 7; padding-top: 48px; }
+.software h2 { font-size: clamp(50px,6vw,92px); }
+.lead { max-width: 50ch; font-size: 17px; line-height: 1.45; margin: 34px 0 28px; }
+.monitorMock { grid-column: 7 / 13; align-self: center; margin-top: 80px; border: 1px solid var(--ink); background: #161714; color: #f1f1ed; box-shadow: 20px 24px 0 rgba(17,17,15,.12); }
+.monitorTop { min-height: 46px; padding: 0 14px; border-bottom: 1px solid #43443f; display: flex; align-items: center; justify-content: space-between; font: 10px var(--mono); }
+.monitorBody { display: grid; grid-template-columns: 150px 1fr; min-height: 390px; }
+.monitorSidebar { border-right: 1px solid #43443f; padding: 14px; display: grid; align-content: start; gap: 8px; }
+.monitorSidebar b { font: 9px var(--mono); color: #9a9b95; margin-top: 12px; }
+.monitorSidebar strong { font-size: 20px; letter-spacing: -.03em; }
+.monitorChart { position: relative; padding: 24px; overflow: hidden; }
+.monitorChart svg { width: 100%; height: 100%; }
+.chartGrid { fill: none; stroke: #343530; stroke-width: 1; }
+.trajectoryPlan, .trajectoryFact { fill: none; stroke-width: 6; stroke-linecap: round; }
+.trajectoryPlan { stroke: #767771; }
+.trajectoryFact { stroke: var(--accent); }
+.chartLegend { position: absolute; left: 34px; bottom: 18px; display: flex; gap: 20px; font: 9px var(--mono); }
+.chartLegend span:last-child { color: var(--accent); }
+
+.engineering { padding-top: 28px; }
+.metricGrid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4,1fr); border-top: 1px solid var(--line); }
+.metricCell { min-height: 300px; padding: 18px; border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+.metricCell:last-child { border-right: 0; }
+.metricCell span { color: var(--accent); font: 700 10px var(--mono); }
+.metricCell strong { margin-top: auto; font-size: clamp(28px,3vw,52px); letter-spacing: -.055em; }
+.metricCell p { font-size: 13px; line-height: 1.4; color: var(--muted); max-width: 31ch; }
+
+.nextStage { min-height: 850px; padding-top: 28px; overflow: hidden; }
+.nextStageLabel { grid-column: 2 / 5; padding-top: 48px; }
+.nextStage h2 { grid-column: 2 / 9; align-self: start; margin-top: 76px; z-index: 2; }
+.nextStage > p { grid-column: 9 / 13; align-self: start; margin-top: 100px; max-width: 38ch; line-height: 1.45; z-index: 2; }
+.futureFrame { position: absolute; inset: 38% 12% 8% 12%; border: 1px solid var(--line); background: radial-gradient(circle at center, rgba(255,90,32,.11), transparent 48%); }
+.futureFrame > span { position: absolute; top: 12px; left: 14px; font: 700 9px var(--mono); color: var(--muted); }
+.futureAxis { position: absolute; top: 50%; left: 8%; right: 8%; height: 1px; background: var(--line); }
+.futureObject { position: absolute; left: 16%; right: 16%; top: 44%; height: 50px; border: 1px solid var(--ink); border-radius: 50px; background: linear-gradient(90deg, #b5b4af, #f8f7f2 20%, #c0bfba 48%, #f7f6f0 75%, #a8a7a2); transform: rotate(-8deg); }
+
+.footer { padding: 30px var(--gutter) 26px; min-height: 620px; background: var(--ink); color: var(--bg); display: grid; grid-template-columns: repeat(12,1fr); position: relative; overflow: hidden; }
+.footer .sectionIndex { grid-column: 1 / 2; }
+.footerTitle { grid-column: 2 / 12; margin-top: 70px; font-size: clamp(70px,10vw,170px); line-height: .78; letter-spacing: -.08em; font-weight: 900; }
+.footerGrid { grid-column: 2 / 13; margin-top: auto; padding-top: 30px; border-top: 1px solid #55554f; display: grid; grid-template-columns: 2fr 1fr; align-items: end; }
+.bigLink { display: inline-block; margin-top: 12px; font-size: clamp(24px,3vw,52px); letter-spacing: -.05em; border-bottom: 1px solid currentColor; }
+.footerMeta { display: flex; justify-content: space-between; font: 10px var(--mono); color: #a8a8a1; }
+
+@media (max-width: 1024px) {
+  .siteHeader { grid-template-columns: 1fr auto; }
+  .mainNav { display: none; }
+  .brand { border-right: 0; }
+  .sectionGrid { grid-template-columns: repeat(8, minmax(0,1fr)); }
+  .heroKicker { grid-column: 1 / 4; }
+  .heroTitle { grid-column: 1 / 7; font-size: clamp(74px,13vw,132px); }
+  .heroDescription { grid-column: 6 / 9; }
+  .toolStage { right: 10%; width: 34vw; opacity: .82; }
+  .telemetryStrip { grid-template-columns: repeat(3,1fr); }
+  .reading:nth-child(3) { border-right: 0; }
+  .reading:nth-child(-n+3) { border-bottom: 1px solid var(--line); }
+  .sectionIndex { grid-column: 1 / 2; }
+  .sectionIntro { grid-column: 2 / 8; }
+  .flowRail, .equipmentList, .metricGrid { grid-column: 1 / -1; }
+  .flowRail { grid-template-columns: repeat(5, minmax(180px,1fr)); overflow-x: auto; }
+  .equipmentRow { grid-template-columns: 50px 70px 2fr 3fr 1.2fr auto; }
+  .equipmentRow p { font-size: 12px; }
+  .softwareCopy { grid-column: 1 / 5; }
+  .monitorMock { grid-column: 5 / 9; }
+  .metricGrid { grid-template-columns: repeat(2,1fr); }
+  .metricCell:nth-child(2) { border-right: 0; }
+  .metricCell:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .nextStageLabel { grid-column: 1 / 4; }
+  .nextStage h2 { grid-column: 1 / 7; }
+  .nextStage > p { grid-column: 6 / 9; }
+  .footer { grid-template-columns: repeat(8,1fr); }
+  .footerTitle { grid-column: 1 / -1; }
+  .footerGrid { grid-column: 1 / -1; }
+}
+
+@media (max-width: 720px) {
+  :root { --gutter: 16px; }
+  body::before { background-size: 32px 32px; }
+  .siteHeader { min-height: 64px; }
+  .brand, .headerCta { padding: 10px 16px; }
+  .brandText { display: none; }
+  .headerCta { font-size: 10px; }
+  .sectionGrid { grid-template-columns: repeat(4, minmax(0,1fr)); }
+  .sectionGrid::before { left: 25%; }
+  .sectionGrid::after { right: 25%; }
+  .hero { min-height: 860px; display: grid; grid-template-rows: auto auto 1fr auto; }
+  .heroKicker { grid-column: 1 / -1; }
+  .heroTitle { grid-column: 1 / -1; margin-top: 52px; font-size: clamp(62px,22vw,98px); }
+  .heroDescription { grid-column: 1 / 4; align-self: start; padding: 0 0 30px; }
+  .toolStage { width: 52vw; height: 50%; right: -4%; top: 38%; opacity: .62; }
+  .toolLabel { display: none; }
+  .telemetryStrip { grid-column: 1 / -1; grid-template-columns: repeat(2,1fr); }
+  .reading:nth-child(n) { border-bottom: 1px solid var(--line); }
+  .reading:nth-child(even) { border-right: 0; }
+  .sectionIndex { grid-column: 1 / 2; }
+  .sectionIntro { grid-column: 1 / -1; padding-top: 70px; }
+  .sectionIntro h2, .software h2, .nextStage h2 { font-size: clamp(44px,14vw,68px); line-height: .9; }
+  .flowRail { grid-column: 1 / -1; grid-template-columns: 1fr; overflow: visible; }
+  .flowStep { min-height: 150px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .equipmentRow { grid-template-columns: 42px 58px 1fr auto; min-height: 140px; }
+  .equipmentRow h3 { grid-column: 3 / 4; }
+  .equipmentRow p { grid-column: 3 / 5; padding-top: 0; }
+  .equipmentSignal { display: none; }
+  .equipmentArrow { grid-column: 4; grid-row: 1; }
+  .software { min-height: auto; padding-bottom: 50px; }
+  .softwareCopy { grid-column: 1 / -1; padding-top: 70px; }
+  .monitorMock { grid-column: 1 / -1; margin: 50px 0 0; box-shadow: 10px 12px 0 rgba(17,17,15,.12); }
+  .monitorBody { grid-template-columns: 100px 1fr; min-height: 300px; }
+  .monitorSidebar { padding: 8px; }
+  .monitorSidebar strong { font-size: 14px; }
+  .monitorChart { padding: 12px; }
+  .metricGrid { grid-template-columns: 1fr; }
+  .metricCell { min-height: 220px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .nextStage { min-height: 720px; }
+  .nextStageLabel { grid-column: 1 / -1; }
+  .nextStage h2 { grid-column: 1 / -1; margin-top: 50px; }
+  .nextStage > p { grid-column: 1 / -1; margin-top: 30px; }
+  .futureFrame { inset: 58% 16px 8% 16px; }
+  .footer { min-height: 520px; grid-template-columns: repeat(4,1fr); padding-inline: 16px; }
+  .footerTitle { grid-column: 1 / -1; margin-top: 70px; font-size: clamp(62px,18vw,92px); }
+  .footerGrid { grid-template-columns: 1fr; gap: 36px; }
+  .footerMeta { gap: 20px; flex-wrap: wrap; }
+  .bigLink { font-size: 24px; overflow-wrap: anywhere; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+
+/* -------------------------------------------------------------------------- */
+/* P2 — motion language / signal UI                                           */
+/* -------------------------------------------------------------------------- */
+
+html { scroll-padding-top: 76px; }
+body { overflow-x: clip; }
+body.is-preloading { overflow: hidden; }
+
+.scrollProgress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  z-index: 4;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  will-change: transform;
+}
+
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: grid;
+  place-items: stretch;
+  color: #f2f1ec;
+  pointer-events: all;
+  overflow: hidden;
+}
+.preloaderColumns {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+}
+.preloaderColumn {
+  background: #12120f;
+  border-right: 1px solid rgba(255,255,255,.12);
+  transform: translateY(0);
+  transition: transform 720ms cubic-bezier(.76,0,.24,1);
+  transition-delay: calc(var(--i) * 35ms);
+}
+.preloaderColumn:last-child { border-right: 0; }
+.preloader.is-exiting .preloaderColumn { transform: translateY(-103%); }
+.preloaderHud {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 28px var(--gutter);
+  font-family: var(--mono);
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+.preloaderHud > div:first-child { display: grid; gap: 8px; }
+.preloaderHud span { font-size: 9px; color: rgba(255,255,255,.52); letter-spacing: .08em; }
+.preloaderHud strong { font-size: 11px; letter-spacing: .04em; }
+.preloaderCounter {
+  font: 700 clamp(66px, 10vw, 156px)/.7 var(--display);
+  letter-spacing: -.08em;
+}
+.preloaderSignal {
+  position: absolute;
+  z-index: 2;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: 25px;
+  display: grid;
+  grid-template-columns: repeat(6,1fr);
+  border-top: 1px solid rgba(255,255,255,.24);
+  padding-top: 12px;
+  font: 700 9px/1 var(--mono);
+  color: rgba(255,255,255,.58);
+  transition: opacity 180ms ease;
+}
+.preloader.is-exiting .preloaderHud,
+.preloader.is-exiting .preloaderSignal { opacity: 0; }
+
+.signalMarquee {
+  position: relative;
+  overflow: hidden;
+  height: 58px;
+  border-bottom: 1px solid var(--line);
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+}
+.marqueeTrack {
+  flex: none;
+  display: flex;
+  width: max-content;
+  animation: signal-marquee 28s linear infinite;
+  will-change: transform;
+}
+.marqueeTrack span {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  padding-right: 34px;
+  font: 700 11px/1 var(--mono);
+  letter-spacing: .045em;
+}
+.marqueeTrack i { font-style: normal; font-size: 18px; }
+@keyframes signal-marquee { to { transform: translateX(-50%); } }
+.tab-hidden .marqueeTrack { animation-play-state: paused; }
+
+.heroStatus {
+  position: absolute;
+  right: var(--gutter);
+  top: 30px;
+  display: grid;
+  gap: 5px;
+  text-align: right;
+  font: 700 9px/1.25 var(--mono);
+  color: var(--muted);
+  z-index: 3;
+}
+.heroStatus span:nth-child(2) { color: var(--accent); }
+
+.toolStage,
+.monitorMock,
+.futureFrame {
+  translate: 0 var(--parallax-y, 0px);
+  will-change: translate;
+}
+.toolStage::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 58%;
+  aspect-ratio: 1;
+  border: 1px solid var(--line-soft);
+  border-radius: 50%;
+  transform: translate(-50%, -35%);
+}
+.toolStage::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  width: 92%;
+  aspect-ratio: 1;
+  border: 1px dashed var(--line-soft);
+  border-radius: 50%;
+  transform: translate(-50%, 64%);
+}
+.toolPulse {
+  position: absolute;
+  left: 50%;
+  width: 120%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid rgba(255,90,32,.4);
+  transform: translate(-50%,-50%) scale(.25);
+  opacity: 0;
+  animation: tool-pulse 3.6s cubic-bezier(.2,.6,.2,1) infinite;
+  pointer-events: none;
+}
+.pulseA { top: 41%; }
+.pulseB { top: 41%; animation-delay: 1.8s; }
+@keyframes tool-pulse {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.25); }
+  18% { opacity: .7; }
+  75%,100% { opacity: 0; transform: translate(-50%,-50%) scale(1); }
+}
+.motion-enabled .toolString { animation: tool-arrive 980ms cubic-bezier(.22,.75,.16,1) 1050ms both; }
+.motion-enabled .toolLabel { animation: label-arrive 500ms ease 1580ms both; }
+.motion-enabled .toolLabelB { animation-delay: 1660ms; }
+.motion-enabled .toolLabelC { animation-delay: 1740ms; }
+.motion-enabled .toolLabelD { animation-delay: 1820ms; }
+@keyframes tool-arrive {
+  from { opacity: 0; transform: translateX(-50%) translateY(90px) scale(.94); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+@keyframes label-arrive { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.motion-enabled [data-reveal] {
+  opacity: 0;
+  transform: translateY(30px);
+  transition:
+    opacity 720ms cubic-bezier(.22,.75,.16,1) var(--reveal-delay, 0ms),
+    transform 720ms cubic-bezier(.22,.75,.16,1) var(--reveal-delay, 0ms);
+}
+.motion-enabled [data-reveal].is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+.motion-enabled .telemetryStrip[data-reveal] .reading {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 520ms ease calc(var(--reading-i) * 55ms), transform 520ms ease calc(var(--reading-i) * 55ms);
+}
+.motion-enabled .telemetryStrip[data-reveal].is-revealed .reading { opacity: 1; transform: translateY(0); }
+
+.flowSignal {
+  margin-top: 24px;
+  height: 1px;
+  background: var(--line-soft);
+  overflow: hidden;
+  position: relative;
+}
+.flowSignal span {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform: translateX(-102%);
+}
+.motion-enabled .flowStep.is-revealed .flowSignal span { animation: signal-pass 1.4s cubic-bezier(.65,0,.35,1) calc(var(--reveal-delay, 0ms) + 180ms) both; }
+@keyframes signal-pass { 0% { transform: translateX(-102%); } 48% { transform: translateX(0); } 100% { transform: translateX(102%); } }
+
+.equipmentRow { position: relative; overflow: hidden; }
+.equipmentRow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform: translateX(-101%);
+  transition: transform 430ms cubic-bezier(.65,0,.35,1);
+  z-index: -1;
+}
+.equipmentRow:hover { background: transparent; color: #fff; }
+.equipmentRow:hover::before { transform: translateX(0); }
+.equipmentRow:hover .equipmentIndex { color: #fff; }
+.equipmentRow:hover .equipmentSignal { color: rgba(255,255,255,.72); }
+
+.liveStatus::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: inline-block;
+  margin-right: 7px;
+  animation: live-blink 1.6s ease-in-out infinite;
+}
+@keyframes live-blink { 50% { opacity: .25; } }
+.trajectoryPlan { stroke-dasharray: 8 8; }
+.trajectoryFact {
+  stroke-dasharray: 800;
+  stroke-dashoffset: 800;
+  transition: stroke-dashoffset 2.1s cubic-bezier(.2,.65,.25,1) 260ms;
+}
+.monitorMock.is-revealed .trajectoryFact { stroke-dashoffset: 0; }
+.chartCursor {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  left: 8.8%;
+  top: 12%;
+  opacity: 0;
+}
+.chartCursor span { position: absolute; inset: 4px; border-radius: 50%; background: var(--accent); }
+.monitorMock.is-revealed .chartCursor { animation: chart-cursor-path 5.4s ease-in-out 1.2s infinite alternate; opacity: 1; }
+@keyframes chart-cursor-path {
+  0% { left: 8.8%; top: 12%; }
+  28% { left: 35%; top: 27%; }
+  56% { left: 47%; top: 48%; }
+  78% { left: 64%; top: 67%; }
+  100% { left: 88%; top: 82%; }
+}
+
+.metricCell { transition: background 260ms ease, color 260ms ease; }
+.metricCell:hover { background: var(--surface); }
+
+.futureFrame { overflow: hidden; }
+.futureFrame::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 18%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent);
+  transform: translateX(-200%) skewX(-20deg);
+  animation: future-scan 4.8s ease-in-out infinite;
+}
+@keyframes future-scan { 0%,15% { transform: translateX(-200%) skewX(-20deg); } 65%,100% { transform: translateX(700%) skewX(-20deg); } }
+.futureObject { display: flex; overflow: hidden; }
+.futureObject i { flex: 1; border-right: 1px solid rgba(17,17,15,.32); position: relative; }
+.futureObject i:last-child { border-right: 0; }
+.futureObject i::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translate(-50%,-50%);
+}
+
+.footer::after {
+  content: "SIGNAL / END";
+  position: absolute;
+  right: -1vw;
+  top: 20px;
+  font: 700 9px var(--mono);
+  color: #66665f;
+  writing-mode: vertical-rl;
+  letter-spacing: .08em;
+}
+
+@media (max-width: 1024px) {
+  .heroStatus { display: none; }
+  .preloaderSignal { grid-template-columns: repeat(3,1fr); row-gap: 8px; }
+}
+
+@media (max-width: 720px) {
+  html { scroll-padding-top: 64px; }
+  .preloaderColumns { grid-template-columns: repeat(4,1fr); }
+  .preloaderColumn:nth-child(n+5) { display: none; }
+  .preloaderHud { padding: 18px 16px; }
+  .preloaderCounter { font-size: 72px; }
+  .preloaderSignal { left: 16px; right: 16px; grid-template-columns: repeat(2,1fr); }
+  .signalMarquee { height: 50px; }
+  .marqueeTrack span { font-size: 9px; }
+  .toolPulse { width: 145%; }
+  .flowSignal { width: 50%; }
+  .futureObject i:nth-child(even) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preloader { display: none !important; }
+  .marqueeTrack,
+  .toolPulse,
+  .toolString,
+  .toolLabel,
+  .liveStatus::before,
+  .futureFrame::after,
+  .chartCursor,
+  .flowSignal span { animation: none !important; }
+  .marqueeTrack { transform: none; }
+  .motion-enabled [data-reveal],
+  .motion-enabled .telemetryStrip[data-reveal] .reading { opacity: 1 !important; transform: none !important; }
+  .trajectoryFact { stroke-dashoffset: 0; transition: none; }
+  .toolStage, .monitorMock, .futureFrame { translate: none !important; }
+}
+.equipmentRow { isolation: isolate; z-index: 0; }
+
+/* P2.5 — single-authority sticky telemetry narrative */
+.telemetryStage {
+  height: 410vh;
+  position: relative;
+  border-bottom: 1px solid var(--line);
+}
+.stageSticky {
+  position: sticky;
+  top: 76px;
+  min-height: calc(100vh - 76px);
+  height: calc(100vh - 76px);
+  overflow: hidden;
+  border-bottom: 0;
+  grid-template-rows: auto 1fr;
+}
+.stageTopline {
+  grid-column: 3 / 7;
+  padding-top: 28px;
+  color: var(--accent);
+}
+.stageCopy {
+  grid-column: 2 / 7;
+  align-self: center;
+  padding-right: 7vw;
+  z-index: 3;
+}
+.stageStep { font: 700 10px/1 var(--mono); color: var(--accent); margin-bottom: 24px; }
+.stageCopy h2 {
+  margin: 0;
+  max-width: 9ch;
+  font-size: clamp(46px, 5.3vw, 92px);
+  line-height: .88;
+  letter-spacing: -.065em;
+  text-transform: uppercase;
+}
+.stageCopy p { max-width: 47ch; margin: 30px 0 0; font-size: 15px; line-height: 1.5; }
+.stageInstrument {
+  grid-column: 7 / 10;
+  grid-row: 1 / 3;
+  position: relative;
+  min-height: 100%;
+  border-inline: 1px solid var(--line-soft);
+}
+.stageDepthLine { position: absolute; top: 4%; bottom: 4%; left: 50%; width: 1px; background: var(--line-soft); }
+.stageTool {
+  position: absolute;
+  width: clamp(76px, 7vw, 106px);
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%,-50%);
+  filter: drop-shadow(0 18px 24px rgba(0,0,0,.12));
+}
+.stageModule {
+  height: clamp(62px, 8vh, 92px);
+  border: 1px solid var(--ink);
+  border-bottom: 0;
+  background: linear-gradient(90deg,#aaa9a4,#f3f2ed 22%,#c8c7c1 52%,#f7f6f1 78%,#aaa9a4);
+  padding: 8px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--mono);
+  transition: background 420ms ease, color 420ms ease, transform 420ms cubic-bezier(.22,.75,.16,1), filter 420ms ease;
+}
+.stageModule:last-child { border-bottom: 1px solid var(--ink); border-radius: 0 0 28px 28px; }
+.stageModule.is-long { height: clamp(78px, 10vh, 118px); }
+.stageModule span { font-size: 7px; opacity: .5; }
+.stageModule strong { font-size: 10px; }
+.stageModule.is-active {
+  background: var(--accent);
+  color: white;
+  transform: scaleX(1.16);
+  filter: brightness(1.03);
+  z-index: 2;
+}
+.stageSignalLine {
+  position: absolute;
+  right: 14%;
+  top: 11%;
+  bottom: 11%;
+  width: 2px;
+  background: var(--line-soft);
+  overflow: hidden;
+}
+.stageSignalLine i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--accent);
+  transform: scaleY(var(--stage-progress, 0));
+  transform-origin: top;
+}
+.stageReadout {
+  grid-column: 10 / 13;
+  align-self: center;
+  padding-left: 30px;
+  display: grid;
+  gap: 0;
+}
+.stageReadout > span { margin-bottom: 20px; color: var(--muted); }
+.stageReadout > div {
+  min-height: 76px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-top: 1px solid var(--line);
+}
+.stageReadout > div:last-child { border-bottom: 1px solid var(--line); }
+.stageReadout span { font: 700 9px/1 var(--mono); color: var(--muted); }
+.stageReadout strong { margin-top: 8px; font-size: clamp(22px,2.5vw,38px); letter-spacing: -.04em; }
+.stageRail {
+  position: absolute;
+  left: var(--gutter);
+  bottom: 24px;
+  display: flex;
+  gap: 5px;
+}
+.stageRail i { width: 44px; height: 3px; background: var(--line); transition: background 250ms ease, width 250ms ease; }
+.stageRail i.is-active { width: 72px; background: var(--accent); }
+.stageMobile { display: none; }
+
+@media (max-width: 1024px) and (min-width: 721px) {
+  .stageSticky { grid-template-columns: repeat(8,minmax(0,1fr)); }
+  .stageTopline { grid-column: 2 / 5; }
+  .stageCopy { grid-column: 1 / 5; padding-right: 5vw; }
+  .stageInstrument { grid-column: 5 / 7; }
+  .stageReadout { grid-column: 7 / 9; padding-left: 18px; }
+  .stageCopy h2 { font-size: clamp(42px,6.7vw,72px); }
+  .stageReadout strong { font-size: 22px; }
+}
+
+@media (max-width: 720px) {
+  .telemetryStage { height: auto; }
+  .stageSticky { display: none; }
+  .stageMobile { display: grid; padding-top: 20px; }
+  .stageMobileList { grid-column: 1 / -1; border-top: 1px solid var(--line); }
+  .stageMobileList article { padding: 24px 0 34px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 42px 1fr; column-gap: 8px; }
+  .stageMobileList article > span { grid-column: 1; grid-row: 1 / 5; color: var(--accent); font: 700 10px var(--mono); }
+  .stageMobileList article > *:not(span) { grid-column: 2; }
+  .stageMobileList h3 { margin: 12px 0 16px; font-size: 30px; line-height: .95; letter-spacing: -.045em; text-transform: uppercase; }
+  .stageMobileList p:not(.eyebrow) { margin: 0; font-size: 14px; line-height: 1.45; }
+  .stageMobileList article > div { margin-top: 22px; font: 700 9px/1.4 var(--mono); color: var(--muted); }
+}
+</style></head><body>
+<div class="preloader" aria-hidden="true"><div class="preloaderColumns"><div class="preloaderColumn" style="--i:0"></div><div class="preloaderColumn" style="--i:1"></div><div class="preloaderColumn" style="--i:2"></div><div class="preloaderColumn" style="--i:3"></div><div class="preloaderColumn" style="--i:4"></div><div class="preloaderColumn" style="--i:5"></div></div><div class="preloaderHud"><div><span>TELEMETRY SYSTEM</span><strong>LINK INITIALIZATION</strong></div><div class="preloaderCounter">000</div></div><div class="preloaderSignal"><span>MWD</span><span>LWD</span><span>INC</span><span>GR</span><span>RES</span><span>SURFACE</span></div></div>
+<main>
+<header class="siteHeader"><div class="scrollProgress" data-scroll-progress></div><a class="brand" href="#top"><span class="brandMark">TS</span><span class="brandText">TELEMETRY<br>SYSTEMS</span></a><nav class="mainNav"><a href="#systems">Системы</a><a href="#equipment">Оборудование</a><a href="#software">ПО</a><a href="#contact">Контакты</a></nav><a class="headerCta" href="#contact">Запросить ТКП ↗</a></header>
+<section class="hero sectionGrid" id="top"><div class="heroKicker eyebrow" data-reveal data-scramble data-scramble-text="DOWNHOLE TELEMETRY / ENGINEERING SYSTEMS">DOWNHOLE TELEMETRY / ENGINEERING SYSTEMS</div><h1 class="heroTitle"><span data-scramble data-scramble-text="DATA">DATA</span><br><span data-scramble data-scramble-text="FROM THE">FROM THE</span><br><em><span data-scramble data-scramble-text="BOTTOM.">BOTTOM.</span></em></h1><div class="heroDescription" data-reveal style="--reveal-delay:220ms"><p>Инженерные системы для измерения, передачи и интерпретации параметров непосредственно в процессе бурения.</p><a href="#equipment" class="textLink">Исследовать систему ↓</a></div><div class="heroStatus" data-reveal><span>WELL / 017</span><span>LINK / STABLE</span><span>DEPTH / 3842.6 M</span></div><div class="toolStage" data-parallax="0.028"><div class="toolAxis"></div><div class="toolString"><div class="toolCap">HEAD</div><div class="toolModule hot">INC</div><div class="toolModule">GR</div><div class="toolModule long">RES</div><div class="toolModule">MWD</div><div class="toolModule long">PWR</div><div class="toolJoint">VZD</div></div><div class="toolPulse pulseA"></div><div class="toolPulse pulseB"></div><div class="toolLabel toolLabelA"><span>01</span> INCLINOMETER</div><div class="toolLabel toolLabelB"><span>02</span> GAMMA</div><div class="toolLabel toolLabelC"><span>04</span> PULSE DATA</div><div class="toolLabel toolLabelD"><span>06</span> MOTOR</div></div><div class="telemetryStrip" data-reveal><div class="reading" style="--reading-i:0"><span>INC</span><strong>87.42°</strong></div><div class="reading" style="--reading-i:1"><span>AZM</span><strong>126.18°</strong></div><div class="reading" style="--reading-i:2"><span>TF</span><strong>314.6°</strong></div><div class="reading" style="--reading-i:3"><span>GR</span><strong>92 API</strong></div><div class="reading" style="--reading-i:4"><span>TEMP</span><strong>118°C</strong></div><div class="reading" style="--reading-i:5"><span>PRES</span><strong>64 MPa</strong></div></div></section>
+<div class="signalMarquee"><div class="marqueeTrack"><span><i>+</i>INCLINOMETRY</span><span><i>+</i>GAMMA RAY</span><span><i>+</i>RESISTIVITY</span><span><i>+</i>MUD PULSE</span><span><i>+</i>DOWNHOLE POWER</span><span><i>+</i>MOTOR</span><span><i>+</i>SURFACE DECODER</span><span><i>+</i>DRILL MONITOR</span><span><i>+</i>INCLINOMETRY</span><span><i>+</i>GAMMA RAY</span><span><i>+</i>RESISTIVITY</span><span><i>+</i>MUD PULSE</span><span><i>+</i>DOWNHOLE POWER</span><span><i>+</i>MOTOR</span><span><i>+</i>SURFACE DECODER</span><span><i>+</i>DRILL MONITOR</span></div></div>
+<section class="telemetryStage" id="telemetry-stage"><div class="stageSticky sectionGrid"><div class="sectionIndex">[ 02 ]</div><div class="stageTopline eyebrow">SYSTEM STATE / <span data-stage-code>ORIENTATION</span></div><div class="stageCopy"><div class="stageStep"><span data-stage-index>01</span> / 04</div><h2 data-stage-title>Понимать положение инструмента.</h2><p data-stage-text>Инклинометрический блок измеряет зенитный угол, азимут и toolface — базовые параметры для управления траекторией.</p></div><div class="stageInstrument"><div class="stageDepthLine"></div><div class="stageTool"><div class="stageModule is-active" data-module="INC"><span>01</span><strong>INC</strong></div><div class="stageModule" data-module="GR"><span>02</span><strong>GR</strong></div><div class="stageModule is-long" data-module="RES"><span>03</span><strong>RES</strong></div><div class="stageModule" data-module="MWD"><span>04</span><strong>MWD</strong></div><div class="stageModule is-long" data-module="PWR"><span>05</span><strong>PWR</strong></div><div class="stageModule" data-module="SFC"><span>06</span><strong>SFC</strong></div></div><div class="stageSignalLine"><i></i></div></div><div class="stageReadout"><span class="eyebrow">LIVE READOUT</span><div><span data-r-label="0">INC</span><strong data-r-value="0">87.42°</strong></div><div><span data-r-label="1">AZM</span><strong data-r-value="1">126.18°</strong></div><div><span data-r-label="2">TF</span><strong data-r-value="2">314.6°</strong></div></div><div class="stageRail"><i class="is-active"></i><i></i><i></i><i></i></div></div><div class="stageMobile sectionGrid"><div class="sectionIndex">[ 02 ]</div><div class="sectionIntro"><p class="eyebrow">TELEMETRY / SYSTEM STATES</p><h2>От измерения<br>до поверхности.</h2></div><div class="stageMobileList"><article><span>01</span><p class="eyebrow">ORIENTATION</p><h3>Понимать положение инструмента.</h3><p>Инклинометрический блок измеряет зенитный угол, азимут и toolface — базовые параметры для управления траекторией.</p><div>INC 87.42° / AZM 126.18° / TF 314.6°</div></article><article><span>02</span><p class="eyebrow">FORMATION</p><h3>Видеть разрез во время бурения.</h3><p>Гамма и резистивиметрия добавляют геологический контекст непосредственно к траектории и помогают принимать решения по геонавигации.</p><div>GR 92 API / RES 18.4 Ω·M / TEMP 118°C</div></article><article><span>03</span><p class="eyebrow">TELEMETRY</p><h3>Передавать данные с забоя.</h3><p>MWD-контур кодирует выбранные измерения и передаёт их по гидроимпульсному каналу, сохраняя приоритет критических параметров.</p><div>PULSE 1.20 Hz / LINK 98.7% / PWR 31.8 V</div></article><article><span>04</span><p class="eyebrow">SURFACE</p><h3>Собрать всё в инженерную картину.</h3><p>Наземный контур синхронизирует забойные данные с глубиной и буровыми параметрами, после чего передаёт их в Drill Monitor.</p><div>DEPTH 3842.6 M / LATENCY 1.8 S / STATE LIVE</div></article></div></div></section><section class="systemFlow sectionGrid" id="systems"><div class="sectionIndex">[ 03 ]</div><div class="sectionIntro" data-reveal><p class="eyebrow" data-scramble data-scramble-text="ONE SYSTEM / FULL SIGNAL PATH">ONE SYSTEM / FULL SIGNAL PATH</p><h2>От забоя<br>до экрана инженера.</h2></div><div class="flowRail"><div class="flowStep" data-reveal style="--reveal-delay:0ms"><span class="flowNumber">01</span><div class="flowSignal"><span></span></div><strong>MEASURE</strong><p>Забойные датчики</p></div><div class="flowStep" data-reveal style="--reveal-delay:70ms"><span class="flowNumber">02</span><div class="flowSignal"><span></span></div><strong>ENCODE</strong><p>Телеметрический модуль</p></div><div class="flowStep" data-reveal style="--reveal-delay:140ms"><span class="flowNumber">03</span><div class="flowSignal"><span></span></div><strong>TRANSMIT</strong><p>Гидроимпульсный канал</p></div><div class="flowStep" data-reveal style="--reveal-delay:210ms"><span class="flowNumber">04</span><div class="flowSignal"><span></span></div><strong>DECODE</strong><p>Наземный декодер</p></div><div class="flowStep" data-reveal style="--reveal-delay:280ms"><span class="flowNumber">05</span><div class="flowSignal"><span></span></div><strong>VISUALIZE</strong><p>Drill Monitor</p></div></div></section>
+<section class="equipment sectionGrid" id="equipment"><div class="sectionIndex">[ 04 ]</div><div class="sectionIntro" data-reveal><p class="eyebrow" data-scramble data-scramble-text="EQUIPMENT / MODULES / SYSTEMS">EQUIPMENT / MODULES / SYSTEMS</p><h2>Инструменты,<br>из которых собирается система.</h2></div><div class="equipmentList"><article class="equipmentRow" data-reveal style="--reveal-delay:0ms"><div class="equipmentIndex">01</div><div class="equipmentCode">INC</div><h3>Инклинометрия</h3><p>Измерение зенитного угла, азимута и положения инструмента в процессе бурения.</p><div class="equipmentSignal">AZM / INC / TF</div><span class="equipmentArrow">↗</span></article>
+<article class="equipmentRow" data-reveal style="--reveal-delay:45ms"><div class="equipmentIndex">02</div><div class="equipmentCode">GR</div><h3>Гамма-модуль</h3><p>Непрерывная регистрация естественной гамма-активности для геонавигации и корреляции.</p><div class="equipmentSignal">GAMMA / API</div><span class="equipmentArrow">↗</span></article>
+<article class="equipmentRow" data-reveal style="--reveal-delay:90ms"><div class="equipmentIndex">03</div><div class="equipmentCode">RES</div><h3>Резистивиметрия</h3><p>Оценка удельного электрического сопротивления пород в составе LWD-компоновки.</p><div class="equipmentSignal">RES / Ω·M</div><span class="equipmentArrow">↗</span></article>
+<article class="equipmentRow" data-reveal style="--reveal-delay:135ms"><div class="equipmentIndex">04</div><div class="equipmentCode">MWD</div><h3>Телеметрический канал</h3><p>Формирование, кодирование и передача забойных данных на поверхность в реальном времени.</p><div class="equipmentSignal">PULSE / DATA</div><span class="equipmentArrow">↗</span></article>
+<article class="equipmentRow" data-reveal style="--reveal-delay:180ms"><div class="equipmentIndex">05</div><div class="equipmentCode">PWR</div><h3>Питание</h3><p>Энергетический модуль для стабильной работы измерительной и передающей части компоновки.</p><div class="equipmentSignal">VOLT / TEMP</div><span class="equipmentArrow">↗</span></article>
+<article class="equipmentRow" data-reveal style="--reveal-delay:225ms"><div class="equipmentIndex">06</div><div class="equipmentCode">VZD</div><h3>ВЗД</h3><p>Забойный двигатель как часть управляемой компоновки для набора и удержания траектории.</p><div class="equipmentSignal">RPM / TORQUE</div><span class="equipmentArrow">↗</span></article>
+<article class="equipmentRow" data-reveal style="--reveal-delay:225ms"><div class="equipmentIndex">07</div><div class="equipmentCode">SFC</div><h3>Наземное оборудование</h3><p>Датчики, декодирование, интерфейсы и рабочее место инженера телеметрии.</p><div class="equipmentSignal">PRESS / DEPTH</div><span class="equipmentArrow">↗</span></article>
+<article class="equipmentRow" data-reveal style="--reveal-delay:225ms"><div class="equipmentIndex">08</div><div class="equipmentCode">SW</div><h3>ПО мониторинга</h3><p>Приём, визуализация и контроль параметров бурения с единой временной шкалой.</p><div class="equipmentSignal">LIVE / SYNC</div><span class="equipmentArrow">↗</span></article></div></section>
+<section class="software sectionGrid" id="software"><div class="sectionIndex">[ 05 ]</div><div class="softwareCopy" data-reveal><p class="eyebrow" data-scramble data-scramble-text="SURFACE SOFTWARE / REAL-TIME MONITORING">SURFACE SOFTWARE / REAL-TIME MONITORING</p><h2>Телеметрия заканчивается не на декодере.</h2><p class="lead">Наземное ПО связывает глубину, траекторию, давление, гамму, состояния оборудования и события в единую инженерную картину.</p><a href="#contact" class="textLink">Drill Monitor / подробнее ↗</a></div><div class="monitorMock" data-reveal data-parallax="0.018"><div class="monitorTop"><span>DRILL MONITOR / LIVE</span><span class="liveStatus">LINK 98.7%</span></div><div class="monitorBody"><div class="monitorSidebar"><b>DEPTH</b><strong>3 842.6 m</strong><b>INC</b><strong>87.42°</strong><b>AZM</b><strong>126.18°</strong><b>TF</b><strong>314.6°</strong></div><div class="monitorChart"><svg viewBox="0 0 600 300"><path class="chartGrid" d="M0 50H600M0 100H600M0 150H600M0 200H600M0 250H600M100 0V300M200 0V300M300 0V300M400 0V300M500 0V300"/><path class="trajectoryPlan" d="M55 38 C155 50 205 72 250 110 S335 225 545 260"/><path class="trajectoryFact" d="M55 38 C150 47 210 80 252 116 S350 210 550 248"/></svg><div class="chartCursor"><span></span></div><div class="chartLegend"><span>PLAN</span><span>FACT</span></div></div></div></div></section>
+<section class="engineering sectionGrid"><div class="sectionIndex">[ 06 ]</div><div class="sectionIntro" data-reveal><p class="eyebrow" data-scramble data-scramble-text="ENGINEERING PRINCIPLES">ENGINEERING PRINCIPLES</p><h2>Не декоративная технология.<br>Рабочая система.</h2></div><div class="metricGrid"><div class="metricCell" data-reveal style="--reveal-delay:0ms"><span>01</span><strong>REAL-TIME</strong><p>Приоритет данным, которые меняют решение инженера прямо во время бурения.</p></div><div class="metricCell" data-reveal style="--reveal-delay:65ms"><span>02</span><strong>MODULAR</strong><p>Компоновка строится из функциональных модулей под конкретную задачу.</p></div><div class="metricCell" data-reveal style="--reveal-delay:130ms"><span>03</span><strong>TRACEABLE</strong><p>Каждый параметр должен иметь источник, состояние и временную привязку.</p></div><div class="metricCell" data-reveal style="--reveal-delay:195ms"><span>04</span><strong>FIELD-READY</strong><p>Интерфейс и оборудование проектируются с учётом реальной буровой среды.</p></div></div></section>
+<section class="nextStage sectionGrid"><div class="sectionIndex">[ 07 ]</div><div class="nextStageLabel eyebrow" data-reveal data-scramble data-scramble-text="NEXT / MEDIA LAYER">NEXT / MEDIA LAYER</div><h2 data-reveal>Здесь появится<br>настоящая КНБК.</h2><p data-reveal>На следующем этапе этот каркас заменяется собственными 3D-моделями инклинометра, гамма-модуля, резистивиметрии, ВЗД и полной компоновки. Геометрия страницы уже подготовлена под этот слой.</p><div class="futureFrame" data-reveal data-parallax="0.02"><span>3D ASSET SLOT / RESERVED</span><div class="futureAxis"></div><div class="futureObject"><i></i><i></i><i></i><i></i><i></i></div></div></section>
+<footer class="footer" id="contact"><div class="sectionIndex">[ 08 ]</div><div class="footerTitle" data-reveal>LET'S BUILD<br>THE SIGNAL PATH.</div><div class="footerGrid" data-reveal><div><p class="eyebrow" data-scramble data-scramble-text="ENGINEERING REQUEST">ENGINEERING REQUEST</p><a class="bigLink" href="mailto:engineering@example.com">engineering@example.com ↗</a></div><div class="footerMeta"><span>MWD / LWD / SURFACE</span><span>© 2026</span></div></div></footer>
+</main>
+<script>
+const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/.-_';
+function scramble(el){if(el.dataset.scrambled)return;el.dataset.scrambled='1';const final=el.dataset.scrambleText||el.textContent||'';const start=performance.now(),dur=620;function draw(now){const p=Math.min(1,(now-start)/dur),locked=Math.floor(final.length*p);let out='';for(let i=0;i<final.length;i++){const c=final[i];out+=c===' '?c:(i<locked||p===1?c:chars[Math.floor(Math.random()*chars.length)]);}el.textContent=out;if(p<1)requestAnimationFrame(draw)}requestAnimationFrame(draw)}
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+document.documentElement.classList.add('motion-enabled');
+if(!reduce){
+const pre=document.querySelector('.preloader'), counter=document.querySelector('.preloaderCounter');document.body.classList.add('is-preloading');const ps=performance.now();function pc(now){const p=Math.min(1,(now-ps)/920);counter.textContent=String(Math.round((1-Math.pow(1-p,3))*100)).padStart(3,'0');if(p<1)requestAnimationFrame(pc)}requestAnimationFrame(pc);setTimeout(()=>pre.classList.add('is-exiting'),1010);setTimeout(()=>{pre.remove();document.body.classList.remove('is-preloading')},1740);
+const ro=new IntersectionObserver((entries,o)=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('is-revealed');o.unobserve(e.target)}}),{rootMargin:'0px 0px -12% 0px',threshold:.08});document.querySelectorAll('[data-reveal]').forEach(n=>ro.observe(n));
+const so=new IntersectionObserver((entries,o)=>entries.forEach(e=>{if(e.isIntersecting){scramble(e.target);o.unobserve(e.target)}}),{rootMargin:'0px 0px -8% 0px',threshold:.15});document.querySelectorAll('[data-scramble]').forEach(n=>so.observe(n));
+const progress=document.querySelector('[data-scroll-progress]'), pars=[...document.querySelectorAll('[data-parallax]')];let ticking=false;function up(){ticking=false;const max=Math.max(1,document.documentElement.scrollHeight-innerHeight);progress.style.transform=`scaleX(${Math.min(1,Math.max(0,scrollY/max))})`;pars.forEach(n=>{const r=n.getBoundingClientRect(),factor=Number(n.dataset.parallax||.035),off=Math.max(-42,Math.min(42,(r.top-innerHeight*.5)*factor));n.style.setProperty('--parallax-y',off.toFixed(2)+'px')})}function req(){if(ticking)return;ticking=true;requestAnimationFrame(up)}up();addEventListener('scroll',req,{passive:true});addEventListener('resize',req,{passive:true});
+} else {document.querySelector('.preloader').remove();document.querySelectorAll('[data-reveal]').forEach(n=>n.classList.add('is-revealed'));}
+document.addEventListener('visibilitychange',()=>document.documentElement.classList.toggle('tab-hidden',document.hidden));
+
+const stageSection=document.querySelector('.telemetryStage');
+if(stageSection && !reduce){
+ const states=[
+  {index:'01',code:'ORIENTATION',title:'Понимать положение инструмента.',text:'Инклинометрический блок измеряет зенитный угол, азимут и toolface — базовые параметры для управления траекторией.',read:[['INC','87.42°'],['AZM','126.18°'],['TF','314.6°']],active:['INC']},
+  {index:'02',code:'FORMATION',title:'Видеть разрез во время бурения.',text:'Гамма и резистивиметрия добавляют геологический контекст непосредственно к траектории и помогают принимать решения по геонавигации.',read:[['GR','92 API'],['RES','18.4 Ω·M'],['TEMP','118°C']],active:['GR','RES']},
+  {index:'03',code:'TELEMETRY',title:'Передавать данные с забоя.',text:'MWD-контур кодирует выбранные измерения и передаёт их по гидроимпульсному каналу, сохраняя приоритет критических параметров.',read:[['PULSE','1.20 Hz'],['LINK','98.7%'],['PWR','31.8 V']],active:['MWD','PWR']},
+  {index:'04',code:'SURFACE',title:'Собрать всё в инженерную картину.',text:'Наземный контур синхронизирует забойные данные с глубиной и буровыми параметрами, после чего передаёт их в Drill Monitor.',read:[['DEPTH','3842.6 M'],['LATENCY','1.8 S'],['STATE','LIVE']],active:['SFC']}
+ ];
+ let last=-1;
+ function stageUpdate(){if(innerWidth<=720)return;const rect=stageSection.getBoundingClientRect(),travel=Math.max(1,rect.height-innerHeight),p=Math.min(1,Math.max(0,-rect.top/travel)),idx=Math.min(3,Math.floor(p*4)),st=states[idx];document.querySelector('.stageSignalLine i').style.setProperty('--stage-progress',p);if(idx===last)return;last=idx;document.querySelector('[data-stage-code]').textContent=st.code;document.querySelector('[data-stage-index]').textContent=st.index;document.querySelector('[data-stage-title]').textContent=st.title;document.querySelector('[data-stage-text]').textContent=st.text;document.querySelectorAll('.stageModule').forEach(n=>n.classList.toggle('is-active',st.active.includes(n.dataset.module)));document.querySelectorAll('.stageRail i').forEach((n,i)=>n.classList.toggle('is-active',i===idx));st.read.forEach((r,i)=>{document.querySelector(`[data-r-label="${i}"]`).textContent=r[0];document.querySelector(`[data-r-value="${i}"]`).textContent=r[1]});}
+ addEventListener('scroll',stageUpdate,{passive:true});addEventListener('resize',stageUpdate,{passive:true});stageUpdate();
+}
+</script></body></html>

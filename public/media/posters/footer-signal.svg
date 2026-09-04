@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" width="1400" height="900" role="presentation">
+  <defs>
+    <linearGradient id="fTrace" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff5b22" stop-opacity="0"/>
+      <stop offset="0.18" stop-color="#ff5b22" stop-opacity="0.85"/>
+      <stop offset="0.62" stop-color="#ff8a4f" stop-opacity="1"/>
+      <stop offset="1" stop-color="#ff5b22" stop-opacity="0.15"/>
+    </linearGradient>
+    <radialGradient id="fGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff7a3c" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ff7a3c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="fDepth" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#10100e" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#10100e" stop-opacity="0.02"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Depth grid: the signal path travels through it -->
+  <g stroke="#10100e" stroke-opacity="0.13" stroke-width="1">
+    <path d="M0 150H1400"/><path d="M0 300H1400"/><path d="M0 450H1400"/>
+    <path d="M0 600H1400"/><path d="M0 750H1400"/>
+    <path d="M200 0V900"/><path d="M400 0V900"/><path d="M600 0V900"/>
+    <path d="M800 0V900"/><path d="M1000 0V900"/><path d="M1200 0V900"/>
+  </g>
+  <rect width="1400" height="900" fill="url(#fDepth)"/>
+
+  <ellipse cx="760" cy="452" rx="330" ry="200" fill="url(#fGlow)"/>
+
+  <!-- Signal path: measurement travelling from bottomhole to surface -->
+  <path d="M60 742C250 742 300 520 470 500S700 640 860 560 1080 240 1340 214"
+        fill="none" stroke="url(#fTrace)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M60 742C250 742 300 520 470 500S700 640 860 560 1080 240 1340 214"
+        fill="none" stroke="#ffffff" stroke-opacity="0.4" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Sample nodes -->
+  <g fill="#10100e">
+    <circle cx="470" cy="500" r="9"/><circle cx="860" cy="560" r="9"/><circle cx="1340" cy="214" r="9"/>
+  </g>
+  <g fill="#ff5b22">
+    <circle cx="470" cy="500" r="4"/><circle cx="860" cy="560" r="4"/><circle cx="1340" cy="214" r="4"/>
+  </g>
+
+  <!-- Corner registration marks -->
+  <g stroke="#10100e" stroke-opacity="0.5" stroke-width="2" fill="none">
+    <path d="M46 92V46h46"/><path d="M1354 46h-46v46" transform="translate(0,0)"/>
+    <path d="M46 808v46h46"/><path d="M1308 854h46v-46"/>
+  </g>
+</svg>
