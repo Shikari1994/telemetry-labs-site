@@ -33,6 +33,8 @@ jobs:
           NEXT_PUBLIC_STATIC_DEMO: "1"
           # Pages serves the site from /<repo>/, so assets need that prefix.
           PAGES_BASE_PATH: ${{ github.event.repository.name != format('{0}.github.io', github.repository_owner) && format('/{0}', github.event.repository.name) || '' }}
+          # Same value, exposed to the client bundle for plain <img>/<source>.
+          NEXT_PUBLIC_BASE_PATH: ${{ github.event.repository.name != format('{0}.github.io', github.repository_owner) && format('/{0}', github.event.repository.name) || '' }}
         run: npx next build
 
       # Stops Pages from running the output through Jekyll, which would drop

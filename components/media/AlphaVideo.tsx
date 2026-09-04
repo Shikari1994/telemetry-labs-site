@@ -11,6 +11,15 @@ type Props = {
 };
 
 /**
+ * Next.js rewrites `basePath` into next/image and next/link only. These are
+ * plain <img>/<source> elements, so the prefix has to be applied by hand —
+ * without it the manifest's root-relative paths resolve against the domain
+ * root and 404 on a project Pages site served from /<repo>/.
+ */
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const withBase = (path: string) => `${BASE_PATH}${path}`;
+
+/**
  * Transparent-media host implementing the blueprint §11.2 loading policy.
  *
  * The poster is always painted, so the slot has correct size from first paint
@@ -96,7 +105,7 @@ export function AlphaVideo({ id, className, priority = false }: Props) {
     >
       <img
         className="alphaMediaPoster"
-        src={asset.poster}
+        src={withBase(asset.poster)}
         width={asset.width}
         height={asset.height}
         alt={asset.decorative ? "" : (asset.alt ?? "")}
@@ -109,7 +118,7 @@ export function AlphaVideo({ id, className, priority = false }: Props) {
         <video
           className="alphaMediaVideo"
           ref={videoRef}
-          poster={asset.poster}
+          poster={withBase(asset.poster)}
           width={asset.width}
           height={asset.height}
           muted
@@ -118,7 +127,7 @@ export function AlphaVideo({ id, className, priority = false }: Props) {
           preload="none"
         >
           {asset.sources.map((source) => (
-            <source key={source.src} src={source.src} type={source.type} />
+            <source key={source.src} src={withBase(source.src)} type={source.type} />
           ))}
         </video>
       ) : null}
