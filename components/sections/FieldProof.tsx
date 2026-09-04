@@ -26,7 +26,7 @@ export function FieldProof() {
   return (
     <section className="proofSection">
       <div className="proofHeader">
-        <span>[ 09 ]</span>
+        <span>[ 08 ]</span>
         <div>
           <p className="eyebrow" data-scramble data-scramble-text="FIELD PRINCIPLES / OPERATING LOGIC">FIELD PRINCIPLES / OPERATING LOGIC</p>
           <h2 data-reveal>СОЗДАНО<br />ДЛЯ БУРОВОЙ.</h2>

@@ -4,7 +4,6 @@ import { SignalMarquee } from "@/components/motion/SignalMarquee";
 import { PartnerTicker } from "@/components/sections/PartnerTicker";
 import { NextStage } from "@/components/sections/NextStage";
 import { Hero } from "@/components/sections/Hero";
-import { TelemetryStage } from "@/components/sections/TelemetryStage";
 import { SystemPrograms } from "@/components/sections/SystemPrograms";
 import { Equipment } from "@/components/sections/Equipment";
 import { Solutions } from "@/components/sections/Solutions";
@@ -22,7 +21,6 @@ export default function Home() {
       <Hero />
       <PartnerTicker />
       <SignalMarquee />
-      <TelemetryStage />
       <SystemPrograms />
       <Equipment />
       <Solutions />

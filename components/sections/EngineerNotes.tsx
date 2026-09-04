@@ -29,7 +29,7 @@ export function EngineerNotes() {
   return (
     <section className="notesSection" aria-label="Engineering field notes">
       <div className="notesHeader">
-        <span>[ 08 ]</span>
+        <span>[ 07 ]</span>
         <div>
           <p className="eyebrow" data-scramble data-scramble-text="FIELD NOTES / OPERATING PRINCIPLES">FIELD NOTES / OPERATING PRINCIPLES</p>
           <h2 data-reveal>НЕ ПРИНИМАЙТЕ<br />СИГНАЛ<br />КАК ДАННОСТЬ.</h2>

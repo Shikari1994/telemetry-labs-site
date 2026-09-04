@@ -19,7 +19,7 @@ export function SystemPrograms() {
   return (
     <section className="programsSection" aria-label="Ключевые контуры системы">
       <div className="programsHeader">
-        <span>[ 03 ]</span>
+        <span>[ 02 ]</span>
         <div>
           <p className="eyebrow" data-scramble data-scramble-text="TWO LOOPS / ONE SYSTEM">TWO LOOPS / ONE SYSTEM</p>
           <h2 data-reveal>FROM BOTTOMHOLE<br />TO DECISION.</h2>

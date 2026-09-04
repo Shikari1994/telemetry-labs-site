@@ -4,7 +4,7 @@ export function Equipment() {
   return (
     <section className="equipmentLab" id="equipment">
       <div className="equipmentLabHeader">
-        <span>[ 04 ]</span>
+        <span>[ 03 ]</span>
         <div>
           <p className="eyebrow" data-scramble data-scramble-text="DOWNHOLE STACK / MODULES">DOWNHOLE STACK / MODULES</p>
           <h2 data-reveal>ПОЛНЫЙ<br />ИНСТРУМЕНТАЛЬНЫЙ<br />КОНТУР.</h2>

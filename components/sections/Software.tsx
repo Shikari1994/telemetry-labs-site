@@ -2,7 +2,7 @@ export function Software() {
   return (
     <section className="softwareLab" id="software">
       <div className="softwareLabHeader">
-        <span>[ 06 ]</span>
+        <span>[ 05 ]</span>
         <div>
           <p className="eyebrow" data-scramble data-scramble-text="SURFACE / SOFTWARE / LIVE">SURFACE / SOFTWARE / LIVE</p>
           <h2 data-reveal>DRILL<br />MONITOR.</h2>

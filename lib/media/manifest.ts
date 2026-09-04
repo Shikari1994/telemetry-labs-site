@@ -46,17 +46,6 @@ const heroProbe: MediaAsset = {
   decorative: true,
 };
 
-/** Beyond Measurement: the pinned laboratory chamber. */
-const labChamber: MediaAsset = {
-  id: "lab-chamber",
-  section: "telemetry-stage",
-  width: 1000,
-  height: 1250,
-  poster: "/media/posters/lab-chamber.svg",
-  sources: [],
-  decorative: true,
-};
-
 /** Final CTA: cursor-reactive signal-path scene (§6 row 14). */
 const footerScene: MediaAsset = {
   id: "footer-signal",
@@ -70,7 +59,6 @@ const footerScene: MediaAsset = {
 
 export const mediaAssets = {
   [heroProbe.id]: heroProbe,
-  [labChamber.id]: labChamber,
   [footerScene.id]: footerScene,
 } as const satisfies Record<string, MediaAsset>;
 

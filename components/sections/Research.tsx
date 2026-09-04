@@ -29,7 +29,7 @@ export function Research() {
   return (
     <section className="researchSection" aria-label="Research and insights">
       <div className="researchHeader">
-        <span>[ 11 ]</span>
+        <span>[ 10 ]</span>
         <div>
           <p className="eyebrow" data-scramble data-scramble-text="LATEST RESEARCH / TECHNICAL NOTES">LATEST RESEARCH / TECHNICAL NOTES</p>
           <h2 data-reveal>LATEST<br />RESEARCH.</h2>

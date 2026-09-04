@@ -10,7 +10,7 @@ export function Faq() {
   return (
     <section className="faqLab">
       <div className="faqLabHeader">
-        <span>[ 10 ]</span>
+        <span>[ 09 ]</span>
         <div><p className="eyebrow">FAQ / SYSTEM QUESTIONS</p><h2 data-reveal>ЧАСТЫЕ<br />ВОПРОСЫ.</h2></div>
         <p data-reveal>Коротко о принципах конфигурации, данных и дальнейшем 3D-слое.</p>
       </div>

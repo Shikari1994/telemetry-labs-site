@@ -11,7 +11,7 @@ export function Solutions() {
     <section className="systemsShowcase" id="solutions">
       <div className="systemsPin">
         <div className="systemsShowcaseHeader">
-          <span>[ 05 ]</span>
+          <span>[ 04 ]</span>
           <div>
             <p className="eyebrow" data-scramble data-scramble-text="SYSTEM ARCHITECTURES / FIELD CONFIGURATIONS">SYSTEM ARCHITECTURES / FIELD CONFIGURATIONS</p>
             <h2 data-reveal>СИСТЕМЫ<br />НА ОБЪЕКТЕ.</h2>

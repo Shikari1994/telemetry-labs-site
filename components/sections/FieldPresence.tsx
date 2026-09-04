@@ -40,7 +40,7 @@ export function FieldPresence() {
   return (
     <section className="presenceSection" aria-label="Field presence">
       <div className="presenceHeader">
-        <span>[ 07 ]</span>
+        <span>[ 06 ]</span>
         <div>
           <p className="eyebrow" data-scramble data-scramble-text="FIELD PRESENCE / ENGINEERING SIGNALS">FIELD PRESENCE / ENGINEERING SIGNALS</p>
           <h2 data-reveal>ПРИСУТСТВИЕ<br />НА ОБЪЕКТЕ.</h2>
