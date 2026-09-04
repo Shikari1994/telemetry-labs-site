@@ -1,9 +1,12 @@
 "use client";
 
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { equipment } from "@/data/site";
 
 type RfqFormProps = { initialProduct?: string };
+
+/* See NextStage: no API routes exist in the static Pages build. */
+const STATIC_DEMO = process.env.NEXT_PUBLIC_STATIC_DEMO === "1";
 
 type SubmitState =
   | { status: "idle" }
@@ -25,6 +28,18 @@ export function RfqForm({ initialProduct }: RfqFormProps) {
   }, [initialProduct]);
 
   const [selected, setSelected] = useState<string[]>(initialCodes);
+
+  /* The ?product= preselect is read here rather than from server-side
+     searchParams, which keeps /request statically exportable. Runs once on
+     mount and only when the parent did not already supply a product. */
+  useEffect(() => {
+    if (initialProduct) return;
+    const code = new URLSearchParams(window.location.search).get("product")?.toUpperCase();
+    if (!code) return;
+    if (!equipment.some((item) => item.code === code)) return;
+    setSelected((current) => (current.length ? current : [code]));
+  }, [initialProduct]);
+
   const [step, setStep] = useState(0);
   const [state, setState] = useState<SubmitState>({ status: "idle" });
 
@@ -65,6 +80,11 @@ export function RfqForm({ initialProduct }: RfqFormProps) {
     const form = event.currentTarget;
     if (!form.checkValidity()) {
       form.reportValidity();
+      return;
+    }
+
+    if (STATIC_DEMO) {
+      setState({ status: "error", message: "Демо-сборка: отправка отключена. Форма работает в полной версии." });
       return;
     }
 

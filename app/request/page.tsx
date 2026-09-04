@@ -8,14 +8,7 @@ export const metadata: Metadata = {
   description: "Форма технического запроса на подбор буровой телеметрии, LWD/MWD-модулей, ВЗД, наземного оборудования и ПО.",
 };
 
-type PageProps = {
-  searchParams: Promise<{ product?: string | string[] }>;
-};
-
-export default async function RequestPage({ searchParams }: PageProps) {
-  const query = await searchParams;
-  const product = Array.isArray(query.product) ? query.product[0] : query.product;
-
+export default function RequestPage() {
   return (
     <main>
       <Header />
@@ -33,7 +26,7 @@ export default async function RequestPage({ searchParams }: PageProps) {
       <section className="requestBody sectionGrid">
         <div className="sectionIndex">[ 01—03 ]</div>
         <div className="requestFormWrap">
-          <RfqForm initialProduct={product?.toUpperCase()} />
+          <RfqForm />
         </div>
       </section>
       <Footer />

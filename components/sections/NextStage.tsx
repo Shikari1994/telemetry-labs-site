@@ -4,6 +4,11 @@ import { useId, useRef, useState } from "react";
 
 type Status = "idle" | "sending" | "ok" | "error";
 
+/* GitHub Pages serves static files only, so the /api/lead route does not exist
+   there. The build sets this flag to say so up front instead of letting the
+   submit fail with a 405. */
+const STATIC_DEMO = process.env.NEXT_PUBLIC_STATIC_DEMO === "1";
+
 const topics = [
   ["systems", "Забойные системы"],
   ["software", "Drill Monitor"],
@@ -129,12 +134,16 @@ export function NextStage() {
             />
           </div>
 
-          <button className="orangeButton nextStageSubmit" type="submit" disabled={status === "sending"}>
+          <button
+            className="orangeButton nextStageSubmit"
+            type="submit"
+            disabled={status === "sending" || STATIC_DEMO}
+          >
             {status === "sending" ? "ОТПРАВКА…" : "ОТПРАВИТЬ ↗"}
           </button>
 
-          <p className="nextStageError" id={errorId} role="alert">
-            {status === "error" ? error : ""}
+          <p className="nextStageError" id={errorId} role={STATIC_DEMO ? undefined : "alert"}>
+            {STATIC_DEMO ? "ДЕМО-СБОРКА / ОТПРАВКА ОТКЛЮЧЕНА" : status === "error" ? error : ""}
           </p>
         </form>
       )}

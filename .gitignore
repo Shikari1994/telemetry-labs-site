@@ -26,3 +26,4 @@ yarn-error.log*
 # editor / tooling
 /.claude
 /qa
+/out
