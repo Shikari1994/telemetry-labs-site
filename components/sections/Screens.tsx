@@ -8,9 +8,9 @@ import { screens } from "@/data/home";
 const total = String(screens.length).padStart(2, "0");
 
 /**
- * Case 02 screens as a viewer: one large monitor window holding the captures
- * as a 3D stack, the next ones peeking out behind the one in front, and a
- * channel list beside it. Scrolling flips the front capture down out of the
+ * Case 02 features, closing the case with its offer. The screens sit in a
+ * viewer: one large monitor window holding the captures as a 3D stack, the
+ * next ones peeking out behind the one in front, and a channel list beside it. Scrolling flips the front capture down out of the
  * window and the stack moves up a place (MotionProvider pins it on desktop);
  * the list selects the same channel. Phones and reduced motion get the
  * captures as a flat, snapping row and the whole list.
@@ -21,8 +21,8 @@ export function Screens() {
       <div className="viewerPin" data-viewer-pin>
         <SectionHead
           index="05"
-          label="CASE 02 / SCREENS"
-          title={["Пять экранов", "Drill Monitor"]}
+          label="CASE 02 / FEATURES"
+          title={["Что умеет", "Drill Monitor"]}
           lead="Экраны программы для Windows и Android: от пульта бурильщика до паспорта прибора в телефоне."
         />
 
@@ -82,7 +82,7 @@ export function Screens() {
           </span>
         </div>
       </div>
-      <SectionOffer offer="screens" />
+      <SectionOffer offer="monitor" />
     </section>
   );
 }

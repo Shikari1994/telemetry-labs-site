@@ -186,6 +186,11 @@ export function MotionProvider({ children }: { children: ReactNode }) {
         if (label) tl.add(() => scrambleElement(label), 0);
         tl.fromTo(titleLines, wipeX.from, { ...wipeX.to, duration: 0.6, ease: "steps(14)", stagger: 0.14 }, 0.05);
         if (lead) tl.fromTo(lead, { ...wipeY.from, y: 10 }, { ...wipeY.to, y: 0, duration: 0.5, ease: "steps(5)" }, 0.32);
+        // A case passport follows the lead, one fact after another.
+        const facts = head.querySelectorAll("[data-passport] > div");
+        if (facts.length) {
+          tl.fromTo(facts, wipeX.from, { ...wipeX.to, duration: 0.4, ease: "steps(8)", stagger: 0.1, clearProps: "clipPath" }, 0.5);
+        }
       });
 
       /* Seams between sections: the row wipes in, the bar loads cell by cell

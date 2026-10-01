@@ -78,6 +78,10 @@ The visual/motion reference is ChainGPT Labs (`https://labs.chaingpt.org/`) as d
   else is poster or alpha video.
 - Works are presented as a visual, technological showcase: one short line
   per beat. No formulas, calculations, line counts or spec tables.
+- Every case tells itself the same way: the head's lead says what the work
+  is, then its passport (`CasePassport`, `passports` in `data/home.ts`: who
+  it is for, the task, where it runs, what we did), then its features, and
+  one offer closes the case, even when it spans two sections.
 - Pin-heavy and breakpoint-dependent timelines must be registered through
   `gsap.matchMedia`, never a boolean read once at mount.
 

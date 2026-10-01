@@ -39,7 +39,7 @@ export const works: readonly Work[] = [
     media: "gtn-hero",
     kicker: "WEBSITE / STATIC BUILD",
     title: "geo-tn.com",
-    text: "Корпоративный сайт НПК «Геотехнавигация»: компания, оборудование и собственный софт — одной историей на скролле.",
+    text: "Корпоративный сайт НПК «Геотехнавигация» — производителя телеметрии для бурения.",
     tags: ["ASTRO", "GSAP", "WEBGL", "THREE.JS"],
     caseId: "case-site",
     href: SITE_URL,
@@ -51,7 +51,7 @@ export const works: readonly Work[] = [
     media: "dm-drilling",
     kicker: "PRODUCT / REALTIME",
     title: "Drill Monitor",
-    text: "Мониторинг бурения в реальном времени и цифровой паспорт оборудования: приложение для офиса и телефон для работы прямо на буровой.",
+    text: "Мониторинг бурения в реальном времени и цифровой паспорт оборудования.",
     tags: ["REACT 19", "ELECTRON", "EXPO", "WEBSOCKET"],
     caseId: "drill-monitor",
     href: `${SITE_URL}#software`,
@@ -109,15 +109,38 @@ export const openBay = {
 } as const;
 
 /**
- * The short offer that closes each case section: what that section shows,
- * turned into what we can build for a visitor.
+ * The short offer that closes each case: what the case shows, turned into
+ * what we can build for a visitor. A case spread over two sections (Drill
+ * Monitor: 04 and 05) gets one offer, at its end.
  */
 export const offers = {
   site: { tag: "САЙТЫ", text: "Сделаем сайт, который так же ведёт посетителя от первого экрана до заявки — с анимацией, видео и 3D под ваш продукт." },
-  monitor: { tag: "ПЛАТФОРМЫ", text: "Построим систему под ваши данные: от датчика или станции на объекте до экрана компьютера и телефона." },
-  screens: { tag: "ИНТЕРФЕЙСЫ", text: "Спроектируем интерфейс, в котором сложные данные понятны с первого взгляда." },
+  monitor: { tag: "ПЛАТФОРМЫ", text: "Построим систему под ваши данные: от станции на объекте до понятного экрана на компьютере и в телефоне." },
   stack: { tag: "СТЕК", text: "Технологии подбираем под задачу, а не по привычке: веб, десктоп, Android, 3D и работа в реальном времени." },
 } as const;
+
+/**
+ * Every case opens the same way: a line on what the work is (the head's
+ * lead), then this passport — who it is for, the task, where it runs and
+ * what we did — and only then its features. Facts only: Drill Monitor's
+ * link to working rigs is still being integrated, so its passport speaks
+ * of who it is built for, not of where it is installed.
+ */
+export type PassportFact = { label: string; text: string };
+export const passports = {
+  site: [
+    { label: "Для кого", text: "Компании, которые выбирают оборудование и программы для бурения." },
+    { label: "Задача", text: "Рассказать о компании, её приборах и программе одной историей." },
+    { label: "Где работает", text: "geo-tn.com, на компьютере и на телефоне." },
+    { label: "Что сделали", text: "Всё: дизайн, анимацию, 3D и разработку." },
+  ],
+  monitor: [
+    { label: "Для кого", text: "Инженеры на буровой и специалисты в офисе." },
+    { label: "Задача", text: "Заменить разрозненные программы, таблицы и бумагу одной системой." },
+    { label: "Где работает", text: "Компьютер в офисе и Android-телефон у скважины." },
+    { label: "Что сделали", text: "Всё: дизайн, приложения для Windows и Android, сервер и 3D." },
+  ],
+} as const satisfies Record<string, readonly PassportFact[]>;
 
 /** Works index band: the filled slots, then the open ones. */
 export const slots = [
@@ -206,14 +229,15 @@ export const siteShowcase = [
 }[];
 
 /**
- * Case 02: Drill Monitor as a stack of layers, bottom (rig) to top (screens).
- * The 3D model draws them in this order; the list beside it reads top-down.
+ * Case 02, where the system works: a stack of places, bottom (the rig the
+ * data comes from) to top (the office). The 3D model draws them in this
+ * order; the list beside it reads top-down.
  */
 export const monitorLayers = [
-  { tier: "RIG", title: "Буровая", text: "Данные бурения приходят в отраслевых стандартах WITS и WITSML — система встраивается в то, что уже есть на буровой." },
-  { tier: "AGENT", title: "Агент", text: "Лёгкий агент на буровой собирает данные и передаёт их на сервер." },
-  { tier: "SERVER", title: "Сервер", text: "Хранит скважины, рейсы и оборудование, сам считает наработку приборов и раздаёт свежие данные всем экранам." },
-  { tier: "CLIENTS", title: "Экраны", text: "Десктоп для офиса и Android для поля: оба видят одну и ту же картину в реальном времени." },
+  { tier: "RIG", title: "Буровая", text: "Данные приходят со станции на буровой по отраслевым стандартам WITS и WITSML: система встраивается в то, что уже есть." },
+  { tier: "SERVER", title: "Сервер", text: "Хранит скважины, рейсы и приборы, сам считает наработку и сразу раздаёт свежие данные офису и полю." },
+  { tier: "FIELD", title: "Поле", text: "Android-телефон у скважины: та же картина, что в офисе, и паспорт прибора под рукой." },
+  { tier: "OFFICE", title: "Офис", text: "Приложение для Windows: инженеры и руководители видят бурение, траекторию и парк приборов в реальном времени." },
 ] as const;
 
 /** Case 02, horizontal deck: the screens, one line each. */
@@ -313,12 +337,12 @@ export const homeTree: TreeNode[] = [
     label: "Что делаем",
     subs: works.map((work) => ({ id: work.id, label: `${work.index} · ${work.title}` })),
   },
-  { id: "case-site", index: "03", label: "Витрина · geo-tn.com", subs: [] },
+  { id: "case-site", index: "03", label: "geo-tn.com", subs: [] },
   { id: "drill-monitor", index: "04", label: "Drill Monitor", subs: [] },
   {
     id: "screens",
     index: "05",
-    label: "Экраны",
+    label: "Возможности",
     subs: screens.map((item) => ({ id: `screen-${item.slug}`, label: `${item.code} · ${item.title}` })),
   },
   { id: "stack", index: "06", label: "Стек", subs: [] },

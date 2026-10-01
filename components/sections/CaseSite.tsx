@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { AlphaVideo } from "@/components/media/AlphaVideo";
+import { CasePassport } from "@/components/sections/CasePassport";
 import { SectionHead } from "@/components/sections/SectionHead";
 import { SectionOffer } from "@/components/sections/SectionOffer";
 import { SITE_URL, siteShowcase } from "@/data/home";
@@ -8,11 +9,12 @@ const STEP = 360 / siteShowcase.length;
 const total = String(siteShowcase.length).padStart(2, "0");
 
 /**
- * Case 01: the geo-tn.com captures hung on one 3D ring, every one in its own
- * colours. Screens turned away sink into the dark (--lit, written by the
- * scrub); the one in front takes its line of copy. Scrolling turns the ring
- * a screen at a time (MotionProvider pins it on desktop). The markup ships
- * the ring at rest, so reduced motion reads the same.
+ * Case 01: the opener and passport say what the site is and who it is for,
+ * then come its features: the geo-tn.com captures hung on one 3D ring, every
+ * one in its own colours. Screens turned away sink into the dark (--lit,
+ * written by the scrub); the one in front takes its line of copy. Scrolling
+ * turns the ring a screen at a time (MotionProvider pins it on desktop). The
+ * markup ships the ring at rest, so reduced motion reads the same.
  */
 export function CaseSite() {
   return (
@@ -22,13 +24,14 @@ export function CaseSite() {
           index="03"
           label="CASE 01 / GEO-TN.COM / SHOWCASE"
           title={["Сайт, который", "рассказывает"]}
-          lead="Корпоративный сайт производителя буровой телеметрии. Прокрутите — кольцо по очереди покажет шесть ключевых экранов."
+          lead="Компания, её приборы и собственная программа — одной историей на прокрутке."
         >
           <p className="blockAside">
             <a className="textBtn" href={SITE_URL} target="_blank" rel="noopener noreferrer">
               geo-tn.com ↗
             </a>
           </p>
+          <CasePassport work="site" />
         </SectionHead>
 
         <div className="ringStage" data-ring-stage>

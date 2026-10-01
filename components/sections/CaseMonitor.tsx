@@ -1,14 +1,16 @@
 import type { CSSProperties } from "react";
 import { AlphaVideo } from "@/components/media/AlphaVideo";
+import { CasePassport } from "@/components/sections/CasePassport";
 import { SectionHead } from "@/components/sections/SectionHead";
-import { SectionOffer } from "@/components/sections/SectionOffer";
 import { SITE_URL, monitorLayers } from "@/data/home";
 
 /**
- * Case 02: Drill Monitor as an isometric stack of CSS 3D slabs, rig at the
- * bottom and the screens on top. Scrolling pulls the layers apart and turns
- * the stack; packets rise through a beam from the rig to the screens. The
- * list beside it lights up layer by layer on the same scrub.
+ * Case 02 opens here: what Drill Monitor is, its passport, and where it
+ * works, drawn as an isometric stack of CSS 3D slabs, the rig at the bottom
+ * and the office on top. Scrolling pulls the layers apart and turns the
+ * stack; packets rise through a beam from the rig up. The list beside it
+ * lights up layer by layer on the same scrub. The features follow in 05, and
+ * the case's one offer closes 05.
  */
 export function CaseMonitor() {
   const top = monitorLayers.length - 1;
@@ -18,19 +20,20 @@ export function CaseMonitor() {
         index="04"
         label="CASE 02 / DRILL MONITOR / PLATFORM"
         title={["Drill Monitor:", "бурение онлайн"]}
-        lead="Бурение, траектория, каротаж и паспорта оборудования — в одной системе вместо разрозненных программ и таблиц. В офисе на компьютере и в телефоне у скважины."
+        lead="Программа, которую показывает geo-tn.com: бурение в реальном времени и цифровой паспорт каждого прибора."
       >
         <p className="blockAside">
           <a className="textBtn" href={`${SITE_URL}#software`} target="_blank" rel="noopener noreferrer">
             Демо на geo-tn.com ↗
           </a>
         </p>
+        <CasePassport work="monitor" />
       </SectionHead>
 
       <div className="layers">
         <div className="tuiWin layersWin">
           <p className="tuiWinBar" aria-hidden="true">
-            <span>RIG → SCREEN</span>
+            <span>RIG → FIELD · OFFICE</span>
           </p>
           <div className="layersStage" data-monitor>
             <div className="layersView" aria-hidden="true">
@@ -77,7 +80,6 @@ export function CaseMonitor() {
             ))}
         </ol>
       </div>
-      <SectionOffer offer="monitor" />
     </section>
   );
 }
