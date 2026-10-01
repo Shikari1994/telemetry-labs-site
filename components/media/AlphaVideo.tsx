@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createLiveFeed, type LiveFeed } from "@/lib/media/live";
 import { getMediaAsset, type MediaAssetId } from "@/lib/media/manifest";
 
 type Props = {
@@ -8,6 +9,9 @@ type Props = {
   className?: string;
   /** Hero-critical media renders its poster immediately (§11.2 rule 1). */
   priority?: boolean;
+  /** Plays the asset's live feed over the poster while true (lib/media/live.ts);
+      left out, the slot is a plain poster even when its asset has a feed. */
+  live?: boolean;
 };
 
 /**
@@ -28,11 +32,30 @@ const withBase = (path: string) => `${BASE_PATH}${path}`;
  * hidden. A slot with no sources yet (the current pre-3D state) simply stays a
  * poster — sections do not need to know the difference.
  */
-export function AlphaVideo({ id, className, priority = false }: Props) {
+export function AlphaVideo({ id, className, priority = false, live }: Props) {
   const asset = getMediaAsset(id);
   const wrapRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const liveRef = useRef<HTMLCanvasElement>(null);
+  const tagRef = useRef<HTMLSpanElement>(null);
+  const feedRef = useRef<LiveFeed | null>(null);
   const [attached, setAttached] = useState(false);
+  const hasLive = Boolean(asset.live) && live !== undefined;
+
+  /* The live feed is built the first time it is switched on, and only
+     started and stopped after that. */
+  useEffect(() => {
+    const canvas = liveRef.current;
+    if (!hasLive || !canvas) return;
+    if (!live) {
+      feedRef.current?.stop();
+      return;
+    }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    feedRef.current ??= createLiveFeed(canvas, tagRef.current, asset, asset.live?.reel ?? [], withBase);
+    feedRef.current?.start();
+  }, [live, hasLive, asset]);
+  useEffect(() => () => feedRef.current?.dispose(), []);
 
   const hasVideo = asset.sources.length > 0;
 
@@ -97,7 +120,7 @@ export function AlphaVideo({ id, className, priority = false }: Props) {
 
   return (
     <div
-      className={`alphaMedia${className ? ` ${className}` : ""}`}
+      className={`alphaMedia${asset.pixelated ? " is-pixelated" : ""}${className ? ` ${className}` : ""}`}
       ref={wrapRef}
       /* Reserve the intrinsic ratio up front so nothing reflows (§14). */
       style={{ aspectRatio: `${asset.width} / ${asset.height}` }}
@@ -113,6 +136,13 @@ export function AlphaVideo({ id, className, priority = false }: Props) {
         decoding={priority ? "sync" : "async"}
         draggable={false}
       />
+
+      {hasLive ? (
+        <>
+          <canvas className="alphaMediaLive" ref={liveRef} data-live="off" aria-hidden="true" />
+          <span className="alphaMediaTag" ref={tagRef} aria-hidden="true" />
+        </>
+      ) : null}
 
       {attached && hasVideo ? (
         <video

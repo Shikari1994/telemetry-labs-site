@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import "@/styles/legacy-routes.css";
 import { solutions } from "@/data/solutions";
 import { equipmentByCode } from "@/data/site";
 

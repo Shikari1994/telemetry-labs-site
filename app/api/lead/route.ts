@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 /**
- * Homepage conversion block (blueprint §6 row 12).
+ * Portfolio contact block (blueprint §6 row 12).
  *
  * Same policy as the RFQ route: server-side validation, honeypot, and an
  * idempotency id so a double click cannot create two leads. No destination
@@ -17,7 +17,7 @@ type LeadPayload = {
 };
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const allowedTopics = new Set(["systems", "software", "integration"]);
+const allowedTopics = new Set(["website", "3d", "app", "other"]);
 
 export async function POST(request: Request) {
   let body: LeadPayload;

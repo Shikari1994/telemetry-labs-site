@@ -33,32 +33,103 @@ export type MediaAsset = {
   readonly decorative: boolean;
   /** Text equivalent, required when `decorative` is false. */
   readonly alt?: string;
+  /** Pixel art: render with nearest-neighbour scaling. */
+  readonly pixelated?: boolean;
+  /**
+   * What the slot plays when a section switches it on (AlphaVideo `live`,
+   * lib/media/live.ts): a recording of the work, cropped to the screen it
+   * shows (source px: x, y, width, height), or a reel of its captures.
+   */
+  readonly live?: {
+    readonly video?: MediaSource & { readonly crop: readonly [number, number, number, number] };
+    readonly reel?: readonly string[];
+  };
 };
 
-/** Hero: the central telemetry probe. Highest priority media on the page. */
-const heroProbe: MediaAsset = {
-  id: "hero-probe",
-  section: "hero",
-  width: 1200,
-  height: 1500,
-  poster: "/media/posters/hero-probe.svg",
+/**
+ * Stills are generated pixel art (scripts/generate-pixel-art.py): drawn at a
+ * small native size with ordered dithering, then upscaled nearest-neighbour.
+ * `pixelated` tells AlphaVideo to keep every art pixel a hard square.
+ */
+const still = <Id extends string>(
+  id: Id,
+  section: string,
+  width: number,
+  height: number,
+  alt?: string,
+): MediaAsset & { id: Id; pixelated: true } => ({
+  id,
+  section,
+  width,
+  height,
+  poster: `/media/posters/${id}.png`,
   sources: [],
-  decorative: true,
+  decorative: !alt,
+  alt,
+  pixelated: true,
+});
+
+/**
+ * Captures of the works with a light bitmap grain (scripts/dither-screens.py),
+ * at the size they are drawn on a 2x screen. They scale smoothly —
+ * nearest-neighbour downscaling would drop strokes and make the text
+ * unreadable.
+ */
+const capture = <Id extends string>(id: Id, section: string, alt: string): MediaAsset & { id: Id } => ({
+  ...still(id, section, 800, 500, alt),
+  pixelated: false,
+});
+
+
+const gtnHeroStill = capture("gtn-hero", "case-site", "geo-tn.com, первый экран: логотип и два входа — Drill Monitor и GT-Navigator");
+const gtnGlobe = capture("gtn-globe", "case-site", "geo-tn.com: глобус из точек под заголовком раздела о компании");
+const gtnAtlas = capture("gtn-atlas", "case-site", "geo-tn.com: атлас с городами, фактами и списком услуг вокруг глобуса");
+const gtnVideo = capture("gtn-video", "case-site", "geo-tn.com: заголовок раздела Drill Monitor над видеофоном со стендом");
+const gtnCatalog = capture("gtn-catalog", "case-site", "geo-tn.com: каталог продукции, строки с изделиями и кнопками «Подробнее»");
+const gtnMobile = capture("gtn-mobile", "case-site", "geo-tn.com: раздел мобильной версии с тремя телефонами");
+const dmDrillingStill = capture("dm-drilling", "screens", "Drill Monitor, экран бурения: KPI-плитки, toolface и блок SCC-коррекции");
+const dmSurvey = capture("dm-survey", "screens", "Drill Monitor, инклинометрия: таблица замеров и 3D-траектория ствола");
+const dmLogging = capture("dm-logging", "screens", "Drill Monitor, каротажный планшет: настройки шкал и кривые по глубине");
+const dmFleet = capture("dm-fleet", "screens", "Drill Monitor, парк оборудования: категории, модули и карточка паспорта");
+const dmMobile = capture("dm-mobile", "screens", "Drill Monitor для Android: парк, мониторинг и КНБК на трёх телефонах");
+
+/*
+ * The hero room's posters come alive under the cursor. geo-tn.com runs through
+ * its own captures; Drill Monitor plays the screen recording of its drilling
+ * module from the geo-tn.com build (video/module-drilling.mp4), cropped to the
+ * top of the app's window.
+ */
+const gtnHero = {
+  ...gtnHeroStill,
+  live: { reel: [gtnHeroStill, gtnGlobe, gtnAtlas, gtnVideo, gtnCatalog, gtnMobile].map((asset) => asset.poster) },
+};
+const dmDrilling = {
+  ...dmDrillingStill,
+  live: {
+    video: {
+      type: "video/mp4",
+      src: "/media/video/dm-drilling.mp4",
+      bytes: 889_656,
+      crop: [716, 24, 1112, 695] as const,
+    },
+  },
 };
 
-/** Final CTA: cursor-reactive signal-path scene (§6 row 14). */
-const footerScene: MediaAsset = {
-  id: "footer-signal",
-  section: "footer",
-  width: 1400,
-  height: 900,
-  poster: "/media/posters/footer-signal.svg",
-  sources: [],
-  decorative: true,
-};
+/** Footer: static halftone fallback under the realtime dot field. */
+const footerScene = still("footer-signal", "footer", 1400, 900);
 
 export const mediaAssets = {
-  [heroProbe.id]: heroProbe,
+  [gtnHero.id]: gtnHero,
+  [gtnGlobe.id]: gtnGlobe,
+  [gtnAtlas.id]: gtnAtlas,
+  [gtnVideo.id]: gtnVideo,
+  [gtnCatalog.id]: gtnCatalog,
+  [gtnMobile.id]: gtnMobile,
+  [dmDrilling.id]: dmDrilling,
+  [dmSurvey.id]: dmSurvey,
+  [dmLogging.id]: dmLogging,
+  [dmFleet.id]: dmFleet,
+  [dmMobile.id]: dmMobile,
   [footerScene.id]: footerScene,
 } as const satisfies Record<string, MediaAsset>;
 

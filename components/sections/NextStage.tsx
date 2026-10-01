@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import { SectionHead } from "@/components/sections/SectionHead";
 
 type Status = "idle" | "sending" | "ok" | "error";
 
@@ -10,9 +11,10 @@ type Status = "idle" | "sending" | "ok" | "error";
 const STATIC_DEMO = process.env.NEXT_PUBLIC_STATIC_DEMO === "1";
 
 const topics = [
-  ["systems", "Забойные системы"],
-  ["software", "Drill Monitor"],
-  ["integration", "Интеграция на буровой"],
+  ["website", "Сайт"],
+  ["3d", "3D / WebGL"],
+  ["app", "Приложение"],
+  ["other", "Другое"],
 ] as const;
 
 /**
@@ -75,78 +77,84 @@ export function NextStage() {
   };
 
   return (
-    <section className="nextStage" aria-labelledby={`${emailId}-heading`}>
-      <div className="nextStageHead">
-        <span>[ 11 ]</span>
-        <div>
-          <p className="eyebrow" data-scramble data-scramble-text="NEXT STEP / ENGINEERING CONTACT">
-            NEXT STEP / ENGINEERING CONTACT
-          </p>
-          <h2 id={`${emailId}-heading`} data-reveal>
-            ОБСУДИТЬ
-            <br />
-            КОНФИГУРАЦИЮ.
-          </h2>
-        </div>
-        <p data-reveal>
-          Оставьте email — вернёмся с инженерным разбором задачи, а не с рекламным письмом.
+    <section className="block nextStage" id="request" aria-labelledby={`${emailId}-heading`} data-scene>
+      <SectionHead
+        index="07"
+        label="NEXT STEP / NEW PROJECT"
+        title={["Слот 03", "свободен"]}
+        titleId={`${emailId}-heading`}
+        lead="Сайт, 3D-визуализация или приложение — оставьте email, и мы ответим с разбором вашей задачи, а не шаблонным письмом."
+      />
+
+      <div className="tuiWin terminal">
+        <p className="tuiWinBar" aria-hidden="true">
+          <span>
+            REQUEST<b className="terminalPkt"> · PKT 03</b>
+          </span>
         </p>
+
+        {status === "ok" ? (
+          <div className="terminalDone" role="status">
+            <p>
+              <span className="terminalPrompt">&gt;</span> request --send
+            </p>
+            <p className="terminalBar" aria-hidden="true">
+              {"▓".repeat(24)} 100%
+            </p>
+            <strong>ЗАПРОС ПРИНЯТ</strong>
+            <p>Мы свяжемся с вами по указанному адресу.</p>
+          </div>
+        ) : (
+          <form className="terminalForm" onSubmit={submit} noValidate>
+            {/* Honeypot: скрыт от людей, но доступен ботам. */}
+            <div className="terminalTrap" aria-hidden="true">
+              <label htmlFor={`${emailId}-website`}>Не заполняйте это поле</label>
+              <input id={`${emailId}-website`} name="website" type="text" tabIndex={-1} autoComplete="off" />
+            </div>
+
+            <div className="terminalField">
+              <label htmlFor={topicId}>
+                <span className="terminalPrompt">&gt;</span> ТЕМА
+              </label>
+              <select id={topicId} value={topic} onChange={(e) => setTopic(e.target.value)}>
+                {topics.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="terminalField">
+              <label htmlFor={emailId}>
+                <span className="terminalPrompt">&gt;</span> EMAIL
+              </label>
+              <input
+                id={emailId}
+                ref={inputRef}
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="you@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                aria-invalid={status === "error"}
+                aria-describedby={status === "error" ? errorId : undefined}
+                required
+              />
+            </div>
+
+            <div className="terminalActions">
+              <button className="btn btnPx" type="submit" disabled={status === "sending" || STATIC_DEMO}>
+                {status === "sending" ? "Отправка…" : "Отправить"} <span aria-hidden="true">↗</span>
+              </button>
+              <p className="terminalError" id={errorId} role={STATIC_DEMO ? undefined : "alert"}>
+                {STATIC_DEMO ? "ДЕМО-СБОРКА / ОТПРАВКА ОТКЛЮЧЕНА" : status === "error" ? error : ""}
+              </p>
+            </div>
+          </form>
+        )}
       </div>
-
-      {status === "ok" ? (
-        <div className="nextStageDone" role="status">
-          <strong>ЗАПРОС ПРИНЯТ</strong>
-          <p>Мы свяжемся с вами по указанному адресу.</p>
-        </div>
-      ) : (
-        <form className="nextStageForm" onSubmit={submit} noValidate>
-          {/* Honeypot: скрыт от людей, но доступен ботам. */}
-          <div className="nextStageTrap" aria-hidden="true">
-            <label htmlFor={`${emailId}-website`}>Не заполняйте это поле</label>
-            <input id={`${emailId}-website`} name="website" type="text" tabIndex={-1} autoComplete="off" />
-          </div>
-
-          <div className="nextStageField">
-            <label htmlFor={topicId}>ТЕМА</label>
-            <select id={topicId} value={topic} onChange={(e) => setTopic(e.target.value)}>
-              {topics.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="nextStageField nextStageFieldEmail">
-            <label htmlFor={emailId}>EMAIL</label>
-            <input
-              id={emailId}
-              ref={inputRef}
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              placeholder="engineer@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              aria-invalid={status === "error"}
-              aria-describedby={status === "error" ? errorId : undefined}
-              required
-            />
-          </div>
-
-          <button
-            className="orangeButton nextStageSubmit"
-            type="submit"
-            disabled={status === "sending" || STATIC_DEMO}
-          >
-            {status === "sending" ? "ОТПРАВКА…" : "ОТПРАВИТЬ ↗"}
-          </button>
-
-          <p className="nextStageError" id={errorId} role={STATIC_DEMO ? undefined : "alert"}>
-            {STATIC_DEMO ? "ДЕМО-СБОРКА / ОТПРАВКА ОТКЛЮЧЕНА" : status === "error" ? error : ""}
-          </p>
-        </form>
-      )}
     </section>
   );
 }

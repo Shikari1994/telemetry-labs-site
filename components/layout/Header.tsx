@@ -1,80 +1,112 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { AnchorLink } from "@/components/layout/AnchorLink";
+import { PixelMark } from "@/components/pixel/PixelMark";
+import { SITE_URL, owner, screens, works } from "@/data/home";
 
-const stackGroups = [
+type IndexItem = { label: string; to?: string; href?: string };
+
+const indexGroups: { index: string; title: string; items: IndexItem[] }[] = [
   {
     index: "01",
-    title: "DOWNHOLE",
-    items: ["INCLINOMETER", "GAMMA RAY", "RESISTIVITY", "MWD TELEMETRY"],
+    title: "GEO-TN.COM / WEBSITE",
+    items: [
+      { label: "Карточка работы", to: "work-site" },
+      { label: "Витрина сайта", to: "case-site" },
+      { label: "Открыть geo-tn.com", href: SITE_URL },
+    ],
   },
   {
     index: "02",
-    title: "POWER / DRIVE",
-    items: ["POWER MODULE", "MUD MOTOR / ВЗД", "BHA INTERFACES", "PULSE CHANNEL"],
+    title: "DRILL MONITOR / PLATFORM",
+    items: [
+      { label: "Карточка работы", to: "work-monitor" },
+      { label: "Слои платформы", to: "drill-monitor" },
+      { label: `Экраны · ${screens.length}`, to: "screens" },
+    ],
   },
   {
     index: "03",
-    title: "SURFACE",
-    items: ["SURFACE DECODER", "DEPTH SYNC", "RIG DATA", "LINK QA"],
+    title: "STACK",
+    items: [{ label: "Технологии", to: "stack" }],
   },
   {
     index: "04",
-    title: "SOFTWARE",
-    items: ["DRILL MONITOR", "PLAN / FACT", "EVENT STREAM", "REMOTE VIEW"],
+    title: "NEXT",
+    items: [
+      { label: "Слот 03 — свободен", to: "request" },
+      { label: "Слот 04 — свободен", to: "request" },
+      { label: "Написать", to: "request" },
+    ],
   },
 ];
+
+const nav = [
+  ["1", "Работы", "works"],
+  ["2", "geo-tn.com", "case-site"],
+  ["3", "Drill Monitor", "drill-monitor"],
+  ["4", "Стек", "stack"],
+] as const;
 
 export function Header() {
   const [stackOpen, setStackOpen] = useState(false);
 
+  /* [S] toggles the works index: an in-page panel, never a route change. */
   useEffect(() => {
-    if (!stackOpen) return;
     const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable]")) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === "Escape") setStackOpen(false);
+      if (event.key === "s" || event.key === "S" || event.key === "ы" || event.key === "Ы") {
+        setStackOpen((value) => !value);
+      }
     };
-    document.body.classList.add("stack-menu-open");
     window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.classList.remove("stack-menu-open");
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("stack-menu-open", stackOpen);
+    return () => document.body.classList.remove("stack-menu-open");
   }, [stackOpen]);
+
+  const close = () => setStackOpen(false);
 
   return (
     <>
       <header className="siteHeader" data-site-header>
-        <div className="scrollProgress" data-scroll-progress aria-hidden="true" />
+        <AnchorLink className="brand" to="top" aria-label={`${owner.name} — наверх`}>
+          <PixelMark cell={3} />
+          <span className="brandText">
+            {owner.name}
+          </span>
+        </AnchorLink>
 
-        <button className="brand uiPlaceholder" type="button" aria-disabled="true" aria-label="Telemetry Systems">
-          <span className="brandMark">TS</span>
-          <span className="brandText">TELEMETRY<br />SYSTEMS</span>
-        </button>
-
-        <nav className="mainNav" aria-label="Основные разделы — переходы будут подключены позже">
-          <button className="uiPlaceholder" type="button" aria-disabled="true"><span>01</span> Решения</button>
-          <button className="uiPlaceholder" type="button" aria-disabled="true"><span>02</span> Оборудование</button>
-          <button className="uiPlaceholder" type="button" aria-disabled="true"><span>03</span> Drill Monitor</button>
-          <button className="uiPlaceholder navOptional" type="button" aria-disabled="true"><span>04</span> FAQ</button>
+        <nav className="mainNav" aria-label="Разделы страницы">
+          {nav.map(([key, label, to]) => (
+            <AnchorLink className="navItem" to={to} key={key}>
+              <span className="keyHint">[{key}]</span> {label}
+            </AnchorLink>
+          ))}
         </nav>
 
         <div className="headerTools">
           <button
-            className={`ecosystemButton${stackOpen ? " is-open" : ""}`}
+            className={`stackButton${stackOpen ? " is-open" : ""}`}
             type="button"
             aria-expanded={stackOpen}
             aria-controls="system-stack-panel"
             onClick={() => setStackOpen((value) => !value)}
           >
-            SYSTEM STACK <i aria-hidden="true">{stackOpen ? "−" : "+"}</i>
+            <span className="keyHint">[S]</span> Индекс
           </button>
-          <button className="headerCta uiPlaceholder" type="button" aria-disabled="true" data-magnetic>
-            Запросить ТКП <span>↗</span>
-          </button>
+          <AnchorLink className="btn btnSolid" to="request">
+            Связаться <span aria-hidden="true">↗</span>
+          </AnchorLink>
         </div>
 
-        {/* Small screens lose the inline nav and the SYSTEM STACK button, so the
-            same overlay is reached through this toggle instead. */}
         <button
           className="navToggle"
           type="button"
@@ -83,45 +115,77 @@ export function Header() {
           aria-label={stackOpen ? "Закрыть меню" : "Открыть меню"}
           onClick={() => setStackOpen((value) => !value)}
         >
-          <i aria-hidden="true" />
+          <span aria-hidden="true">{stackOpen ? "[×]" : "[≡]"}</span>
         </button>
       </header>
 
-      <div
-        className={`stackMenu${stackOpen ? " is-open" : ""}`}
-        id="system-stack-panel"
-        aria-hidden={!stackOpen}
-      >
+      <div className={`stackMenu${stackOpen ? " is-open" : ""}`} id="system-stack-panel" aria-hidden={!stackOpen}>
         <div className="stackMenuTop">
-          <span>TS / SYSTEM ECOSYSTEM</span>
-          <span>NO ROUTING / HOMEPAGE PREVIEW</span>
-          <button type="button" onClick={() => setStackOpen(false)}>CLOSE <b>×</b></button>
+          <span>SW / WORKS INDEX</span>
+          <span>
+            {String(works.length).padStart(2, "0")} WORKS / 02 OPEN SLOTS
+          </span>
+          <button type="button" onClick={close} tabIndex={stackOpen ? 0 : -1}>
+            <span className="keyHint">[ESC]</span> Закрыть
+          </button>
         </div>
 
         <div className="stackMenuGrid">
           <div className="stackMenuIntro">
-            <span>[ SYSTEM MAP ]</span>
-            <h2>ONE SIGNAL.<br />ONE STACK.</h2>
-            <p>Полный путь данных от первичного измерения в КНБК до инженерного решения на поверхности.</p>
+            <p className="label">[ INDEX ]</p>
+            <h2>Two works. One field.</h2>
+            <p>Всё, что сейчас есть в портфолио, по разделам. Выберите пункт — страница прокрутится к нему.</p>
           </div>
 
-          {stackGroups.map((group) => (
-            <section className="stackMenuGroup" key={group.index}>
-              <div className="stackMenuGroupHead"><span>{group.index}</span><strong>{group.title}</strong></div>
-              {group.items.map((item, index) => (
-                <button className="stackMenuItem uiPlaceholder" type="button" aria-disabled="true" key={item}>
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <b>{item}</b>
-                  <i>↗</i>
-                </button>
-              ))}
-            </section>
-          ))}
+          <div className="stackMenuGroups">
+            {indexGroups.map((group, groupIndex) => (
+              <section className="stackMenuGroup" key={group.index}>
+                <p className="stackMenuGroupHead">
+                  <span>{group.index}</span> {group.title}
+                </p>
+                {group.items.map((item, index) => {
+                  const inner = (
+                    <>
+                      <span className="br">└</span>
+                      <span className="stackMenuNo">{String(index + 1).padStart(2, "0")}</span>
+                      <b>{item.label}</b>
+                      <i aria-hidden="true">{item.href ? "↗" : "↘"}</i>
+                    </>
+                  );
+                  const style = { "--i": groupIndex * 4 + index } as CSSProperties;
+                  return item.href ? (
+                    <a
+                      className="stackMenuItem"
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      tabIndex={stackOpen ? 0 : -1}
+                      key={item.label}
+                      style={style}
+                    >
+                      {inner}
+                    </a>
+                  ) : (
+                    <AnchorLink
+                      className="stackMenuItem"
+                      to={item.to!}
+                      tabIndex={stackOpen ? 0 : -1}
+                      key={item.label}
+                      style={style}
+                      onClick={close}
+                    >
+                      {inner}
+                    </AnchorLink>
+                  );
+                })}
+              </section>
+            ))}
+          </div>
         </div>
 
         <div className="stackMenuBottom">
-          <span>INC / GR / RES / MWD / PWR / VZD / SFC / SW</span>
-          <strong>MEASURE → ENCODE → TRANSMIT → DECODE → DECIDE</strong>
+          <span>WEB / APP / ··· / ···</span>
+          <strong>BRIEF → DATA → INTERFACE → MOTION → LIVE</strong>
         </div>
       </div>
     </>

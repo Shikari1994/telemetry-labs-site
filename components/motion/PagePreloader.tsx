@@ -2,112 +2,122 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
+import { PixelMark } from "@/components/pixel/PixelMark";
+import { owner } from "@/data/home";
+import { paintBar } from "@/lib/ascii";
 
-const PRELOADER_KEY = "telemetry-preloader-seen-v8";
+/** Session flag: the boot screen has played (the mascot intro then runs faster). */
+export const PRELOADER_KEY = "telemetry-boot-seen-v10";
+const BAR_LENGTH = 32;
+const COVER_COLS = 16;
+const COVER_ROWS = 10;
 type ReadyWindow = Window & { __telemetryReady?: boolean };
 
+const bootLines = [
+  ["mount works index", "OK"],
+  ["work 01   geo-tn.com", "OK"],
+  ["work 02   drill monitor", "OK"],
+  ["slot 03   empty", "WAIT"],
+  ["slot 04   empty", "WAIT"],
+  ["mascot", "READY"],
+];
+
+/**
+ * Boot screen: the page status reads as a terminal load. Log lines resolve in
+ * sequence while a text bar fills, then the screen breaks into pixel cells that
+ * drop out in random order to uncover the page. Plays once per session; any
+ * key or click skips to the uncover.
+ */
 export function PagePreloader() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const counterRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(true);
 
   useLayoutEffect(() => {
     const readyWindow = window as ReadyWindow;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const seen = window.sessionStorage.getItem(PRELOADER_KEY) === "1";
+    let seen = false;
+    try {
+      seen = window.sessionStorage.getItem(PRELOADER_KEY) === "1";
+    } catch {
+      // Storage can be blocked; playing the boot again is the safe fallback.
+    }
 
     const notifyReady = () => {
       readyWindow.__telemetryReady = true;
       window.dispatchEvent(new Event("telemetry:ready"));
     };
 
-    if (reduced || seen || !rootRef.current) {
+    const root = rootRef.current;
+    if (reduced || seen || !root) {
       setActive(false);
       requestAnimationFrame(notifyReady);
       return;
     }
 
     document.body.classList.add("is-preloading");
-    const root = rootRef.current;
-    const columns = Array.from(root.querySelectorAll<HTMLElement>(".preloaderColumn"));
-    const pixels = Array.from(root.querySelectorAll<HTMLElement>(".preloaderPixel"));
-    const labels = root.querySelectorAll<HTMLElement>(".preloaderLabel");
-    const status = root.querySelectorAll<HTMLElement>(".preloaderStatus span");
-    const marquee = root.querySelector<HTMLElement>(".preloaderMarqueeTrack");
-    const count = { value: 0 };
+    const lines = root.querySelectorAll<HTMLElement>("[data-boot-line]");
+    const statuses = root.querySelectorAll<HTMLElement>("[data-boot-status]");
+    const content = root.querySelector<HTMLElement>(".bootContent");
+    const cells = root.querySelectorAll<HTMLElement>(".bootCover i");
+    const bar = root.querySelector<HTMLElement>("[data-boot-bar]");
+    const load = { value: 0 };
 
-    gsap.set(labels, { autoAlpha: 0, y: 7 });
-    gsap.set(status, { autoAlpha: 0.28 });
-    gsap.set(pixels, { autoAlpha: 0, scale: 0.86 });
-    gsap.set(columns, { yPercent: 0 });
-    if (marquee) gsap.set(marquee, { xPercent: 0 });
+    gsap.set(lines, { autoAlpha: 0 });
+    gsap.set(statuses, { autoAlpha: 0 });
 
-    const tl = gsap.timeline({
-      defaults: { ease: "power3.out" },
-      onComplete: () => {
-        document.body.classList.remove("is-preloading");
+    let released = false;
+    const finish = () => {
+      document.body.classList.remove("is-preloading");
+      try {
         window.sessionStorage.setItem(PRELOADER_KEY, "1");
-        notifyReady();
-        setActive(false);
-      },
-    });
+      } catch {
+        // ignore
+      }
+      setActive(false);
+    };
 
-    tl.to(labels, { autoAlpha: 1, y: 0, duration: 0.34, stagger: 0.035 }, 0)
-      .to(
-        count,
-        {
-          value: 100,
-          duration: 1.18,
-          ease: "power2.inOut",
-          onUpdate: () => {
-            if (!counterRef.current) return;
-            counterRef.current.textContent = String(Math.round(count.value)).padStart(3, "0");
-          },
+    const uncover = () => {
+      if (released) return;
+      released = true;
+      tl.kill();
+      notifyReady();
+      gsap
+        .timeline({ onComplete: finish })
+        .to(content, { autoAlpha: 0, duration: 0.18, ease: "steps(3)" })
+        .to(
+          cells,
+          { autoAlpha: 0, duration: 0.01, stagger: { each: 0.0045, from: "random" } },
+          0.08,
+        );
+    };
+
+    const tl = gsap.timeline({ onComplete: uncover });
+    tl.to(
+      load,
+      {
+        value: 1,
+        duration: 1.9,
+        ease: "steps(32)",
+        onUpdate: () => {
+          if (bar) paintBar(bar, load.value, BAR_LENGTH);
         },
-        0.12,
-      )
-      .to(status[0], { autoAlpha: 1, duration: 0.12 }, 0.28)
-      .to(status[1], { autoAlpha: 1, duration: 0.12 }, 0.48)
-      .to(status[2], { autoAlpha: 1, duration: 0.12 }, 0.72)
-      .to(status[3], { autoAlpha: 1, duration: 0.12 }, 0.96)
-      .to(
-        pixels,
-        {
-          autoAlpha: 1,
-          scale: 1,
-          duration: 0.18,
-          stagger: { each: 0.008, from: "center", grid: [7, 8] },
-          ease: "steps(2)",
-        },
-        0.86,
-      )
-      .to(
-        pixels,
-        {
-          autoAlpha: 0,
-          scale: 0.35,
-          duration: 0.22,
-          stagger: { each: 0.006, from: "edges", grid: [7, 8] },
-          ease: "power2.in",
-        },
-        1.18,
-      )
-      .to(
-        columns,
-        {
-          yPercent: (index) => (index % 2 === 0 ? -104 : 104),
-          duration: 0.86,
-          stagger: { each: 0.038, from: "center" },
-          ease: "power4.inOut",
-        },
-        1.28,
-      )
-      .to(marquee, { xPercent: -10, duration: 0.92, ease: "power2.out" }, 1.28)
-      .to(labels, { autoAlpha: 0, duration: 0.16 }, 1.46)
-      .to(root, { autoAlpha: 0, duration: 0.14 }, 2.0);
+      },
+      0.15,
+    );
+    lines.forEach((line, index) => {
+      const at = 0.12 + index * 0.3;
+      tl.to(line, { autoAlpha: 1, duration: 0.01 }, at).to(statuses[index], { autoAlpha: 1, duration: 0.01 }, at + 0.2);
+    });
+    tl.to({}, { duration: 0.25 });
+
+    const skip = () => uncover();
+    window.addEventListener("keydown", skip, { once: true });
+    root.addEventListener("pointerdown", skip, { once: true });
 
     return () => {
       tl.kill();
+      window.removeEventListener("keydown", skip);
+      root.removeEventListener("pointerdown", skip);
       document.body.classList.remove("is-preloading");
     };
   }, []);
@@ -115,39 +125,44 @@ export function PagePreloader() {
   if (!active) return null;
 
   return (
-    <div className="preloader" ref={rootRef} aria-hidden="true">
-      <div className="preloaderColumns">
-        {Array.from({ length: 8 }).map((_, index) => (
-          <div className="preloaderColumn" key={index} />
+    <div className="boot" ref={rootRef} aria-hidden="true">
+      <div className="bootCover">
+        {Array.from({ length: COVER_COLS * COVER_ROWS }).map((_, index) => (
+          <i key={index} />
         ))}
       </div>
 
-      <div className="preloaderPixels">
-        {Array.from({ length: 56 }).map((_, index) => (
-          <i className="preloaderPixel" key={index} />
-        ))}
-      </div>
-
-      <div className="preloaderTop preloaderLabel">
-        <span>TS / LAB</span>
-        <span>DOWNHOLE TELEMETRY</span>
-        <span>INITIALIZING SIGNAL PATH</span>
-      </div>
-
-      <div className="preloaderCounter" ref={counterRef}>000</div>
-
-      <div className="preloaderStatus preloaderLabel">
-        <span>ORIENTATION / READY</span>
-        <span>FORMATION / READY</span>
-        <span>TELEMETRY / READY</span>
-        <span>SURFACE / READY</span>
-      </div>
-
-      <div className="preloaderMarquee preloaderLabel">
-        <div className="preloaderMarqueeTrack">
-          <span>MEASURE / ENCODE / TRANSMIT / DECODE / VISUALIZE / </span>
-          <span>MEASURE / ENCODE / TRANSMIT / DECODE / VISUALIZE / </span>
+      <div className="bootContent">
+        <div className="bootHead">
+          <PixelMark cell={6} />
+          <p>
+            {owner.name} <span>/ boot</span>
+          </p>
         </div>
+
+        <ol className="bootLog">
+          {bootLines.map(([label, status]) => (
+            <li key={label} data-boot-line>
+              <span className="bootPrompt">&gt;</span>
+              <span className="bootLabel">{label}</span>
+              <span className="bootDots" />
+              <b data-boot-status className={status === "WAIT" ? "is-wait" : undefined}>
+                {status}
+              </b>
+            </li>
+          ))}
+        </ol>
+
+        <p className="bootBar" data-boot-bar>
+          <span data-bar-fill />
+          <span data-bar-rest>{"░".repeat(BAR_LENGTH)}</span>
+          <span className="bootPct" data-bar-pct>
+            00%
+          </span>
+        </p>
+        <p className="bootHint">
+          LOADING АЛЬФА КОД <span className="caret" /> <span className="bootSkip">PRESS ANY KEY TO SKIP</span>
+        </p>
       </div>
     </div>
   );

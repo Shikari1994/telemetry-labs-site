@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Cursor-reactive final scene (blueprint §6 row 14).
+ * Cursor-reactive halftone field for the footer (blueprint §6 row 14).
  *
  * Deliberately raw WebGL rather than Three.js: the effect is a single
  * full-quad fragment shader, so pulling in a scene graph would cost far more
@@ -20,39 +20,53 @@ attribute vec2 p;
 void main(){ gl_Position = vec4(p, 0.0, 1.0); }
 `;
 
-/* Signal travelling through a depth field. Pointer warps the wavefront. */
+/* Halftone signal field. The screen is cut into square cells; each cell draws
+   one dot whose radius is the signal intensity sampled at the cell centre, so
+   the waves read as a dot-matrix print. The pointer acts as a lens that swells
+   nearby dots and tints them toward the accent. */
 const FRAG = `
 precision mediump float;
 uniform vec2 u_res;
 uniform float u_time;
 uniform vec2 u_ptr;
+uniform float u_cell;
+
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
 float line(vec2 uv, float off, float freq, float amp){
-  float y = 0.5 + sin(uv.x * freq + u_time * 0.6 + off) * amp
-                + sin(uv.x * freq * 0.5 - u_time * 0.35 + off) * amp * 0.6;
-  float d = abs(uv.y - y);
-  return smoothstep(0.028, 0.0, d);
+  float y = 0.52 + sin(uv.x * freq + u_time * 0.5 + off) * amp
+                 + sin(uv.x * freq * 0.5 - u_time * 0.3 + off) * amp * 0.6;
+  return max(0.0, 1.0 - abs(uv.y - y) / 0.06);
 }
 
 void main(){
-  vec2 uv = gl_FragCoord.xy / u_res;
-  vec2 ptr = u_ptr;
+  vec2 cellId = floor(gl_FragCoord.xy / u_cell);
+  vec2 center = (cellId + 0.5) * u_cell;
+  vec2 uv = center / u_res;
 
-  // Pointer pulls the field toward it, falling off with distance.
-  float pull = 1.0 / (1.0 + 28.0 * dot(uv - ptr, uv - ptr));
-  uv.y += (ptr.y - uv.y) * pull * 0.16;
+  vec2 aspect = vec2(u_res.x / u_res.y, 1.0);
+  vec2 dp = (uv - u_ptr) * aspect;
+  float pull = exp(-dot(dp, dp) * 18.0);
 
-  float amp = 0.055 + pull * 0.05;
-  float s = 0.0;
-  s += line(uv, 0.0, 9.0, amp)        * 0.9;
-  s += line(uv, 1.7, 7.0, amp * 0.85) * 0.55;
-  s += line(uv, 3.4, 11.0, amp * 0.7) * 0.4;
+  float s = line(uv, 0.0, 9.0, 0.07) * 0.9
+          + line(uv, 1.7, 7.0, 0.06) * 0.55
+          + line(uv, 3.4, 11.0, 0.05) * 0.4;
+  s = clamp(s + pull * 0.55, 0.0, 1.0);
 
-  vec3 accent = vec3(1.0, 0.357, 0.133);
-  vec3 col = accent * s;
-  col += accent * pull * 0.16;
+  // Sparse twinkling dust between the waves.
+  float h = hash(cellId);
+  float dust = step(0.985, h) * (0.5 + 0.5 * sin(u_time * 1.7 + h * 40.0)) * 0.28;
 
-  gl_FragColor = vec4(col, s * 0.85 + pull * 0.14);
+  float radius = max(s * 0.42, dust) * u_cell;
+  float d = length(gl_FragCoord.xy - center);
+  float a = smoothstep(radius + 0.8, radius - 0.8, d);
+
+  vec3 grey = vec3(0.529, 0.525, 0.498);
+  vec3 accent = vec3(0.886, 0.451, 0.247);
+  // Mostly grey print; the accent is kept for the crest and the pointer lens.
+  vec3 col = mix(grey, accent, clamp(smoothstep(0.9, 1.0, s) * 0.6 + pull * 0.85, 0.0, 1.0));
+
+  gl_FragColor = vec4(col, a * (0.25 + 0.6 * max(s, dust * 2.0)));
 }
 `;
 
@@ -123,6 +137,7 @@ export function SignalFieldCanvas({ className }: { className?: string }) {
     const uRes = gl.getUniformLocation(program, "u_res");
     const uTime = gl.getUniformLocation(program, "u_time");
     const uPtr = gl.getUniformLocation(program, "u_ptr");
+    const uCell = gl.getUniformLocation(program, "u_cell");
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -139,18 +154,25 @@ export function SignalFieldCanvas({ className }: { className?: string }) {
       }
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.uniform2f(uRes, canvas.width, canvas.height);
+      gl.uniform1f(uCell, Math.round(14 * dpr));
     };
     resize();
 
     /* Pointer is smoothed toward the target rather than applied raw. */
-    const target = { x: 0.5, y: 0.5 };
-    const current = { x: 0.5, y: 0.5 };
+    /* Parked far off-canvas until the pointer arrives, so no lens sits idle. */
+    const target = { x: -2, y: -2 };
+    const current = { x: -2, y: -2 };
     const onMove = (event: PointerEvent) => {
       const rect = host.getBoundingClientRect();
       target.x = (event.clientX - rect.left) / rect.width;
       target.y = 1 - (event.clientY - rect.top) / rect.height;
     };
+    const onLeave = () => {
+      target.x = -2;
+      target.y = -2;
+    };
     host.addEventListener("pointermove", onMove);
+    host.addEventListener("pointerleave", onLeave);
 
     let frame = 0;
     let running = true;
@@ -158,8 +180,13 @@ export function SignalFieldCanvas({ className }: { className?: string }) {
 
     const render = () => {
       if (!running) return;
-      current.x += (target.x - current.x) * 0.06;
-      current.y += (target.y - current.y) * 0.06;
+      // Jump in from the parked position instead of sweeping across the field.
+      if (current.x < -1 && target.x >= -1) {
+        current.x = target.x;
+        current.y = target.y;
+      }
+      current.x += (target.x - current.x) * 0.08;
+      current.y += (target.y - current.y) * 0.08;
       gl.uniform1f(uTime, (performance.now() - start) / 1000);
       gl.uniform2f(uPtr, current.x, current.y);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -195,6 +222,7 @@ export function SignalFieldCanvas({ className }: { className?: string }) {
       document.removeEventListener("visibilitychange", sync);
       window.removeEventListener("resize", onResize);
       host.removeEventListener("pointermove", onMove);
+      host.removeEventListener("pointerleave", onLeave);
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);
       gl.deleteShader(vs);

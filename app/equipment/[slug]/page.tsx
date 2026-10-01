@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import "@/styles/legacy-routes.css";
 import { equipment, equipmentByCode, equipmentBySlug, equipmentProfiles } from "@/data/site";
 
 type PageProps = {

@@ -1,76 +1,82 @@
-import { AlphaVideo } from "@/components/media/AlphaVideo";
-import { telemetryReadings } from "@/data/site";
+import { AnchorLink } from "@/components/layout/AnchorLink";
+import { PixelText } from "@/components/pixel/PixelText";
+import { HeroRoom } from "@/components/sections/HeroRoom";
+import { heroReadings, works } from "@/data/home";
 
 export function Hero() {
   return (
     <section className="hero" id="top" data-hero-section>
-      <div className="heroGridLines" aria-hidden="true"><i /><i /><i /></div>
-
-      <div className="heroTopMeta" data-hero-meta>
-        <span>DOWNHOLE TELEMETRY / DRILLING SYSTEMS</span>
-        <span>LAT 53.45 / LINK STABLE</span>
-      </div>
-
-      <h1 className="heroTitle heroWordmark" aria-label="Telemetry Systems">
-        <span className="heroTitleLine">
-          <span className="heroBrandLockup" data-hero-word>
-            <span className="heroBrandMark" aria-hidden="true">TS</span>
-            <span className="heroBrandText">
-              <span>TELEMETRY</span>
-              <span>SYSTEMS</span>
-            </span>
-          </span>
+      <h1 className="heroWordmark" aria-label="АЛЬФА КОД — портфолио">
+        {/* One line on wide screens, two stacked lines on phones. */}
+        <span className="heroWordmarkWide" data-hero-word>
+          <PixelText text="АЛЬФА КОД" />
+        </span>
+        <span className="heroWordmarkNarrow" data-hero-word>
+          <PixelText text="АЛЬФА" />
+          <PixelText text="КОД" />
         </span>
       </h1>
 
-      <div className="heroObjectWrap" data-hero-object aria-hidden="true">
-        <div className="heroObjectShadow" />
-        <div className="heroProbe">
-          <span className="heroProbeCorner c1" data-hero-corner />
-          <span className="heroProbeCorner c2" data-hero-corner />
-          <span className="heroProbeCorner c3" data-hero-corner />
-          <span className="heroProbeCorner c4" data-hero-corner />
-          {/* Hero-critical media: poster paints immediately, video attaches
-              once the 3D pipeline delivers sources for this id. */}
-          <AlphaVideo id="hero-probe" className="heroProbeMedia" priority />
-        </div>
-        <div className="heroObjectTag tagA">01 / SENSOR CORE</div>
-        <div className="heroObjectTag tagB">DATA / LIVE</div>
-      </div>
+      <div className="heroGrid">
+        <div className="heroCopy" data-hero-copy>
+          <p className="chip" data-hero-line>
+            Портфолио / работы
+          </p>
+          <p className="heroLead" data-hero-line>
+            Сайты, 3D-визуализация и приложения для технологичных компаний — от корпоративного сайта до системы,
+            которая показывает бурение в реальном времени.
+          </p>
 
-      <div className="heroCopy heroCopyLeft" data-hero-copy>
-        <p>
-          Системы измерения, передачи и интерпретации забойных данных — от положения КНБК до рабочего места инженера.
-        </p>
-        <button className="heroButton uiPlaceholder" type="button" aria-disabled="true" data-magnetic>
-          ИССЛЕДОВАТЬ СИСТЕМУ <span>↘</span>
-        </button>
-      </div>
+          <dl className="heroMeta" data-hero-line>
+            <div>
+              <dt>ФОКУС</dt>
+              <dd>
+                <span className="br">└</span> Инженерные продукты
+              </dd>
+            </div>
+            <div>
+              <dt>СТАТУС</dt>
+              <dd>
+                <span className="br">└</span> Online <span className="caret" aria-hidden="true" />
+              </dd>
+            </div>
+            <div>
+              <dt>ИНДЕКС</dt>
+              <dd>
+                <span className="br">└</span> {works.map((work) => `${work.index} ${work.title}`).join(" · ")}
+              </dd>
+            </div>
+          </dl>
 
-      <div className="heroCopy heroCopyRight" data-hero-copy>
-        <span className="heroCopyIndex">/ 001</span>
-        <p>
-          Инклинометрия, гамма, резистивиметрия, MWD, ВЗД, наземный контур и Drill Monitor в одной инженерной архитектуре.
-        </p>
-      </div>
-
-      <div className="heroCornerPanel" data-hero-meta>
-        <div className="heroCornerGraphic">
-          <i /><i /><i /><i /><i />
-        </div>
-        <div className="heroCornerCaption">
-          <span>SIGNAL SAMPLE</span>
-          <strong>98.7%</strong>
-        </div>
-      </div>
-
-      <div className="heroReadings" data-hero-meta aria-label="Демонстрационные телеметрические показания">
-        {telemetryReadings.map(([label, value]) => (
-          <div className="heroReading" key={label}>
-            <span>{label}</span>
-            <strong>{value}</strong>
+          <div className="heroActions" data-hero-line>
+            <AnchorLink className="btn btnSolid" to="works">
+              Смотреть работы <span aria-hidden="true">↘</span>
+            </AnchorLink>
+            <span className="heroKeys">
+              <span className="keyHint">[S]</span> индекс работ
+            </span>
           </div>
-        ))}
+        </div>
+
+        <figure className="heroFigure" data-hero-object>
+          <HeroRoom />
+          <figcaption className="figCaption" data-hero-line>
+            <span>FIG. 01</span>
+            <span>Галерея работ: плакат открывает кейс</span>
+            <span className="heroCaptionLive">
+              <i aria-hidden="true" /> 02 WORKS / ONLINE
+            </span>
+          </figcaption>
+
+          <div className="heroReadings" aria-label="Портфолио в цифрах" data-hero-line>
+            {heroReadings.map(([label, value]) => (
+              <div className="heroReading" key={label}>
+                <span>{label}</span>
+                <strong data-scramble-value>{value}</strong>
+              </div>
+            ))}
+          </div>
+        </figure>
       </div>
     </section>
   );
