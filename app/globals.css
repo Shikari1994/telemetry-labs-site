@@ -1722,6 +1722,12 @@ img {
   font-weight: 500;
   color: var(--ink);
 }
+/* A hint for mouse users only: touch screens have no cursor to follow. */
+@media (hover: none) {
+  .hoverHint {
+    display: none;
+  }
+}
 .blockHead > .blockAside {
   grid-column: 3;
   grid-row: 1;
@@ -3904,6 +3910,16 @@ img {
   }
   .terminalForm {
     grid-template-columns: minmax(0, 1fr);
+  }
+  /* The mascot peeks over the right of the form's bar and sets its parcel
+     down beside itself, so the title moves left, and the packet readout,
+     which would sit under the parcel, is left to the parcel itself. */
+  .terminal .tuiWinBar {
+    justify-content: flex-start;
+    padding-left: 12px;
+  }
+  .terminal[data-parcel] .terminalPkt {
+    display: none;
   }
   .stackMenuGroups,
   .footerCols {

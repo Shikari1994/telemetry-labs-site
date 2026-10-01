@@ -9,7 +9,13 @@ export function Stack() {
         index="06"
         label="STACK / BUILT WITH"
         title={["Технологии", "в работе"]}
-        lead="Всё, на чём собраны обе работы: от анимации и 3D в браузере до серверов и мобильных приложений. Наведите курсор — сфера повернётся следом."
+        lead={
+          <>
+            Всё, на чём собраны обе работы: от анимации и 3D в браузере до серверов и мобильных приложений.
+            {/* The sphere follows a mouse only; touch screens skip the hint. */}
+            <span className="hoverHint"> Наведите курсор — сфера повернётся следом.</span>
+          </>
+        }
       />
       <TechOrbit />
       <SectionOffer offer="stack" />

@@ -23,7 +23,7 @@ const indexGroups: { index: string; title: string; items: IndexItem[] }[] = [
     items: [
       { label: "Карточка работы", to: "work-monitor" },
       { label: "Слои платформы", to: "drill-monitor" },
-      { label: `Экраны · ${screens.length}`, to: "screens" },
+      { label: `Возможности · ${screens.length}`, to: "screens" },
     ],
   },
   {
