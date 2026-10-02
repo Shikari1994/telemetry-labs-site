@@ -9,8 +9,8 @@ import type { MediaAsset } from "@/lib/media/manifest";
  * and each cut of a reel, is an ordered dissolve in two-pixel cells, so it
  * reads as the page's bitmap stepping rather than a fade.
  *
- * It only draws while on or changing; going off stops the loop and pauses the
- * recording.
+ * It only draws while on or changing, on screen, and only frames that differ;
+ * going off or off screen stops the loop and pauses the recording.
  */
 
 const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
@@ -136,6 +136,26 @@ export function createLiveFeed(
   let raf = 0;
   let last = 0;
   let shownTag = "";
+  /* What the canvas holds now, so a frame that would draw the same is skipped. */
+  let shown: { feed: Uint8ClampedArray | null; still: Uint8ClampedArray | null; level: number } = { feed: null, still: null, level: -1 };
+  /* Off screen it neither draws nor plays; it picks up where it was on the way back. */
+  let visible = true;
+  const resume = () => {
+    if (visible && (on || level > 0) && !raf) raf = requestAnimationFrame(frame);
+  };
+  const observer = new IntersectionObserver(([entry]) => {
+    visible = entry.isIntersecting;
+    if (visible) {
+      if (on) void video?.play().catch(() => undefined);
+      resume();
+      return;
+    }
+    cancelAnimationFrame(raf);
+    raf = 0;
+    last = 0;
+    video?.pause();
+  });
+  observer.observe(canvas);
 
   const setTag = (text: string) => {
     if (!tag || text === shownTag) return;
@@ -150,11 +170,14 @@ export function createLiveFeed(
     level = Math.min(1, Math.max(0, level + (on ? dt : -dt) / DISSOLVE));
 
     let feed: Uint8ClampedArray | null = null;
+    // `current` was written this frame (a new video frame, a cut dissolving).
+    let fresh = false;
     if (video) {
       if (video.readyState >= 2 && video.currentTime !== lastTime) {
         lastTime = video.currentTime;
         const [cx, cy, cw, ch] = live.video!.crop;
         take(() => sctx.drawImage(video!, cx, cy, cw, ch, 0, 0, width, height), current);
+        fresh = true;
         setTag(`▶ ${pad(Math.floor(lastTime / 60))}:${pad(Math.floor(lastTime % 60))}`);
       }
       feed = lastTime >= 0 ? current : null;
@@ -174,13 +197,17 @@ export function createLiveFeed(
       if (target && prev && cut < 1) {
         dissolve(prev, target, current, width, cut);
         feed = current;
+        fresh = true;
       } else feed = target;
       setTag(`▶ ${pad(index + 1)}/${pad(frames.length)}`);
     }
 
-    if (feed && still) dissolve(still, feed, out.data, width, level);
-    else if (feed) out.data.set(feed);
-    if (feed || still) ctx.putImageData(out, 0, 0);
+    if ((feed || still) && (fresh || feed !== shown.feed || still !== shown.still || level !== shown.level)) {
+      if (feed && still) dissolve(still, feed, out.data, width, level);
+      else if (feed) out.data.set(feed);
+      ctx.putImageData(out, 0, 0);
+      shown = { feed, still, level };
+    }
 
     if (!on && level <= 0) {
       canvas.dataset.live = "off";
@@ -198,13 +225,15 @@ export function createLiveFeed(
       if (!on) held = HOLD;
       on = true;
       canvas.dataset.live = "on";
-      void ensureVideo()?.play().catch(() => undefined);
-      if (!raf) raf = requestAnimationFrame(frame);
+      const recording = ensureVideo();
+      if (visible) void recording?.play().catch(() => undefined);
+      resume();
     },
     stop() {
       on = false;
     },
     dispose() {
+      observer.disconnect();
       cancelAnimationFrame(raf);
       video?.pause();
       video?.removeAttribute("src");
