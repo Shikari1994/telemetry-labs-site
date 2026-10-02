@@ -128,6 +128,17 @@ The visual/motion reference is ChainGPT Labs (`https://labs.chaingpt.org/`) as d
   one offer closes the case, even when it spans two sections.
 - Pin-heavy and breakpoint-dependent timelines must be registered through
   `gsap.matchMedia`, never a boolean read once at mount.
+- Per-frame cost (measured with `qa/perf/scroll-run.js`, see its README):
+  - a custom property a scrub sets every frame on an element with a big
+    subtree is registered with `@property` (`inherits: false`) when nothing
+    under it reads it (the 06 board camera); an inherited one restyles the
+    whole subtree each frame;
+  - infinite CSS animations hold under `[data-offscreen]`, which
+    `MotionProvider` sets on each part of the page while it is off screen;
+  - a canvas loop sleeps while its canvas is off screen and skips frames
+    that would draw the same (the live feed, `lib/media/live.ts`); video
+    frames are taken through `createImageBitmap`, never drawn straight from
+    the `<video>` into a read-back canvas.
 
 ## Homepage acceptance
 - Grid lines and gutters remain shared and aligned across all sections.
