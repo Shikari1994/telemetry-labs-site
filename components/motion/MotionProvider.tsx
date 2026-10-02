@@ -14,6 +14,7 @@ import { setLenis } from "@/lib/motion/lenis";
 import { pace } from "@/lib/motion/pace";
 import { scrambleElement } from "@/lib/motion/scramble";
 import { showcase } from "@/lib/showcase/state";
+import { viewer as viewerState } from "@/lib/viewer/state";
 import { COLS, ROWS, chipCells } from "@/lib/stack/board";
 
 type ReadyWindow = Window & { __telemetryReady?: boolean };
@@ -424,6 +425,8 @@ export function MotionProvider({ children }: { children: ReactNode }) {
           const k = Math.floor(u);
           const f = u - k;
           const at = k + f * f * (3 - 2 * f);
+          // The mascot turns the captures over on the same beat.
+          viewerState.at = at;
           shots.forEach((shot, index) => {
             const rel = index - at;
             if (rel >= 0) {

@@ -59,7 +59,21 @@ The visual/motion reference is ChainGPT Labs (`https://labs.chaingpt.org/`) as d
   perch and back, and any other change of what it follows (a ride, the
   dive, a rebuilt route) is flown from where it was drawn
   (`components/mascot/Mascot.tsx`). Never hide it or cut it from one spot
-  to another; a new station must keep it on screen.
+  to another; a new station must keep it on screen. The one way out of
+  sight is behind the content of a section, and it always comes back out
+  (the owner's call).
+- Inside the works' sections the mascot does not stand in front of the
+  content pointing (the owner found that a fly in the face): it plays a
+  part in the scene or hides behind it, an `act` per station
+  (`lib/mascot/acts.ts`): 02 peeks over the cartridges and ducks from the
+  cursor, 03 plays hide-and-seek round the ring's WebGL screen (its outline
+  published in `lib/showcase/state.ts`), 04 climbs the layer stack as it
+  lights, 05 turns the captures over on the viewer's scrub
+  (`lib/viewer/state.ts`), 07 peeks over the form and climbs onto it when
+  the request is sent. What it is behind is masked out of its drawing
+  (`lib/mascot/occlude.ts`, the renderer's stencil). The hero, the 06 screen,
+  the seams, the transits and the footer keep their own beats; the perch
+  only sits and looks about.
 - Seams: every other section boundary is a short `Seam`
   (`components/sections/Seam.tsx`) in the page's own language: the next
   number, a stepped load bar and the name on one row, scrubbed so it lands

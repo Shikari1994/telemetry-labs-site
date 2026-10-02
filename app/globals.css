@@ -2245,6 +2245,15 @@ img {
   font: 400 18px/1 var(--pixel);
   color: var(--ink-3);
 }
+/* Where the mascot takes hold of a capture's top edge: zero size, unseen. */
+.viewerGrip {
+  position: absolute;
+  top: 0;
+  left: 78%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
 .viewerShot.is-front .viewerTag {
   background: var(--ink);
   color: var(--bg);
@@ -2465,6 +2474,13 @@ img {
   font: 400 18px/1 var(--pixel);
   color: var(--ink-3);
   transition: color 0.2s steps(2);
+}
+/* Corner marks for the mascot (lib/mascot/occlude.ts): zero size, unseen. */
+.slabCorner {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
 }
 .slabFront,
 .slabRight {

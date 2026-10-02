@@ -4,12 +4,26 @@ import { CasePassport } from "@/components/sections/CasePassport";
 import { SectionHead } from "@/components/sections/SectionHead";
 import { SITE_URL, monitorLayers } from "@/data/home";
 
+/* Zero-size marks on a face's corners: projected by the browser, they give
+   the mascot each slab's silhouette and the top it stands on. */
+function Corners() {
+  return (
+    <>
+      <i className="slabCorner" data-corner style={{ left: 0, top: 0 }} />
+      <i className="slabCorner" data-corner style={{ left: "100%", top: 0 }} />
+      <i className="slabCorner" data-corner style={{ left: "100%", top: "100%" }} />
+      <i className="slabCorner" data-corner style={{ left: 0, top: "100%" }} />
+    </>
+  );
+}
+
 /**
  * Case 02 opens here: what Drill Monitor is, its passport, and where it
  * works, drawn as an isometric stack of CSS 3D slabs, the rig at the bottom
  * and the office on top. Scrolling pulls the layers apart and turns the
  * stack; packets rise through a beam from the rig up. The list beside it
- * lights up layer by layer on the same scrub. The features follow in 05, and
+ * lights up layer by layer on the same scrub, and the mascot climbs the
+ * stack a layer at a time as they light. The features follow in 05, and
  * the case's one offer closes 05.
  */
 export function CaseMonitor() {
@@ -48,9 +62,11 @@ export function CaseMonitor() {
                     <div className="slabTop">
                       {index === top ? <AlphaVideo id="dm-drilling" /> : null}
                       <span>{layer.tier}</span>
+                      <Corners />
                     </div>
                     <div className="slabFront" />
                     <div className="slabRight" />
+                    <Corners />
                   </div>
                 ))}
                 <div className="beam">

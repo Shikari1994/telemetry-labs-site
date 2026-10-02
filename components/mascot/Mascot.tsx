@@ -8,6 +8,7 @@ import { CLOSEUP_HD, createDirector, type Director, type Intro, type Placement }
 import { GREETING_LENGTH } from "@/lib/mascot/hd";
 import { clamp, easeInOut } from "@/lib/mascot/math";
 import { HEAD_CENTER_Y } from "@/lib/mascot/model";
+import { toClip } from "@/lib/mascot/occlude";
 import { createParcel, type Stage } from "@/lib/mascot/parcel";
 import { createMascotRenderer, type DrawState } from "@/lib/mascot/renderer";
 import { createRig, KNOCK_HITS, poweredOff, type FaceCue } from "@/lib/mascot/rig";
@@ -30,11 +31,13 @@ import { jumpTo } from "@/lib/motion/jump";
  * island, and the touchdown builds the board (lib/motion/heroCue.ts). The
  * render pixel grows with its size, so the flight steps through resolutions.
  *
- * At every stop it works the section (the station's aim): it points at the
- * item under the cursor or in focus, watches the section's current item while
- * the cursor is quiet, and points that item out each time it changes. In the
- * hero that means the works' screens over the island, and clicking one sends
- * it flying into that screen as the page jumps to the case.
+ * In the hero and at the request it works the section (the station's aim):
+ * it points at the item under the cursor or in focus, watches the section's
+ * current item while the cursor is quiet, and points that item out each time
+ * it changes. In the hero that means the works' screens over the island, and
+ * clicking one sends it flying into that screen as the page jumps to the
+ * case. In the works' sections it plays a part instead (lib/mascot/acts.ts),
+ * mostly behind the content: what it is behind is cut out of its drawing.
  *
  * It runs one errand across the visit (lib/mascot/parcel.ts): the socket hands
  * it a parcel on touchdown, it carries it down the page and sets it down on
@@ -90,16 +93,6 @@ type ScreenMode = "dark" | "wait" | "knock" | "static" | "on" | "off";
 
 type ReadyWindow = Window & { __telemetryReady?: boolean };
 type Point = { x: number; y: number };
-
-function clipOutside(boxes: DOMRect[] | null) {
-  if (!boxes?.length) return "none";
-  // Even-odd polygon: the viewport minus every occluder box.
-  const holes = boxes.map((b) => {
-    const [l, t, r, btm] = [b.left, b.top, b.right, b.bottom].map((n) => Math.round(n));
-    return `${l}px ${t}px, ${r}px ${t}px, ${r}px ${btm}px, ${l}px ${btm}px, ${l}px ${t}px, 0 0`;
-  });
-  return `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${holes.join(", ")})`;
-}
 
 const centre = (el: Element): Point => {
   const box = el.getBoundingClientRect();
@@ -348,7 +341,6 @@ export function Mascot() {
     let drawn = false;
     let lastKey = "";
     let wasSettled = false;
-    let clip = "none";
     let boopReadyAt = 0;
     let rideWave = false;
     let current: Element | null = null;
@@ -376,7 +368,13 @@ export function Mascot() {
         introTimeline.totalTime(introTimeline.totalTime() + dt * introSpeed, false);
       }
 
-      let place = director.evaluate(window.scrollY, width, height, intro, dt);
+      // What the visitor is doing: the mouse, or a fresh tap, and what is under it.
+      const tapFresh = now < lookUntil;
+      let place = director.evaluate(window.scrollY, width, height, intro, dt, {
+        poke: pointer ?? (tapFresh && !pointer ? look : null),
+        target: hovered ?? (tapFresh ? tapped : null),
+        now,
+      });
       if (dive) {
         const diving = placeDive(dt);
         if (diving.visible) place = diving;
@@ -394,7 +392,7 @@ export function Mascot() {
           fly: ride.fly,
           settled: false,
           wave: false,
-          occluders: null,
+          masks: null,
           aim: null,
         };
         if (ride.wave && !rideWave) rig.wave();
@@ -474,7 +472,6 @@ export function Mascot() {
       let frame: ReturnType<typeof rig.update> | null = null;
       if (!place.visible) {
         wasVisible = false;
-        if (clip !== "none") canvas.style.clipPath = clip = "none";
         // A parcel left on the window still needs its render pixel.
         if (spot && pixelFor(spot.scale) !== pixel) {
           pixel = pixelFor(spot.scale);
@@ -498,9 +495,6 @@ export function Mascot() {
           pixel = nextPixel;
           fit();
         }
-
-        const nextClip = clipOutside(place.occluders);
-        if (nextClip !== clip) canvas.style.clipPath = clip = nextClip;
 
         /* Aim: the hovered or focused item, else the section's current item,
            pointed out for a moment whenever it changes. */
@@ -551,6 +545,8 @@ export function Mascot() {
           power: place.halts ? { screen: Math.min(power.screen, finale.power), charge: Math.min(power.charge, finale.power) } : power,
           doze: place.halts && place.settled && finale.doze,
           point,
+          hands: place.hands,
+          lean: place.lean,
           carry: parcel.carry,
           frame: riding ? { yaw: ride.yaw, tilt: ride.tilt, roll: ride.roll } : null,
           face: riding && ride.face ? ride.face : face,
@@ -578,7 +574,8 @@ export function Mascot() {
         return;
       }
       const state: DrawState = frame?.state ?? { glow: 0.6 + 0.25 * Math.sin(now / 300), charge: 1, screen: 1 };
-      renderer.draw(frame ? [...frame.parts, ...parcelParts] : parcelParts, state);
+      const masks = place.visible && place.masks?.length ? toClip(place.masks, width, height) : undefined;
+      renderer.draw(frame ? [...frame.parts, ...parcelParts] : parcelParts, state, masks);
       drawn = true;
     };
     const tick = () => step();

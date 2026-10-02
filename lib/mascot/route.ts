@@ -14,9 +14,15 @@
  * measures its ranges outside the pin: on the section for the way in, and on
  * the section's offer (the first thing after the pin) for the way out.
  *
- * At a station it works the section: it points at the item under the cursor
- * or in focus, keeps an eye on the section's current item (the screen in
- * front, the layer that just lit) and points it out when it changes.
+ * In the hero and at the request it works the section: it points at the
+ * item under the cursor or in focus, keeps an eye on the section's current
+ * item and points it out when it changes.
+ *
+ * Inside the works' own sections it does not stand in front of the content
+ * pointing: it plays a part in it or hides behind it (an `act`,
+ * lib/mascot/acts.ts): it peeks over the cartridges and ducks from the
+ * cursor, plays hide-and-seek round the ring's screen, climbs the layer
+ * stack as it lights, and turns the viewer's captures over.
  *
  * At a screen station it is the section's scene itself: a close-up whose
  * glass covers the station's element, showing the page through it.
@@ -28,6 +34,7 @@
  */
 
 import { ISLAND_CAMERA } from "@/lib/hero/island";
+import type { ActName } from "@/lib/mascot/acts";
 import { SIGNAL_LINE } from "@/lib/motion/bus";
 
 export type Pose = "hover" | "sit" | "peek";
@@ -70,6 +77,12 @@ export type StationDef = {
   halts?: boolean;
   /** Mask the element so the mascot reads as behind it. */
   occlude?: boolean;
+  /** Plays a part in the section instead of holding a pose on the element
+      (lib/mascot/acts.ts); the element is the section's scene it reads.
+      `scale` is its size (seek: the most it grows to). */
+  act?: ActName;
+  /** A peek that climbs up onto the edge once this shows up in the element. */
+  rise?: string;
   /** Wave once each time it settles here. */
   wave?: boolean;
   /** A close-up whose glass covers the element (as wide as the glass):
@@ -150,58 +163,53 @@ const desktop: RouteDef = {
       aim: { select: "[data-island-work]", active: "[data-island-work][data-current]" },
     },
     {
-      // On top of the second cartridge; points at the cartridge or the
-      // direction under the cursor.
+      // Hides behind the cartridges and peeks over one, ducking from the cursor.
       id: "programs",
-      select: "[data-program-card]",
-      index: 1,
-      pose: "sit",
+      select: ".bay",
+      act: "shy",
+      pose: "peek",
       ax: 0.5,
       scale: 6,
       enter: ["top 100%", "top 58%"],
-      leave: ["top 30%", "top 6%"],
-      aim: { select: "[data-cart], [data-service]" },
+      // It stays while a cartridge is still up (on a phone they stack).
+      leave: ["bottom 52%", "bottom 26%"],
     },
     {
-      // Presents the ring from the right end of its caption rule, pointing
-      // out each screen as it turns to the front.
+      // Hide-and-seek round the ring's front screen, a side per capture.
       id: "ring",
-      select: ".ringInfo",
+      select: "[data-ring-scene]",
+      act: "seek",
       pose: "sit",
-      ax: 0.93,
+      ax: 0.5,
       scale: 6,
       enter: ["top 75%", "top 25%"],
       enterOn: "[data-ring]",
       leave: ["top bottom+=60", "top 70%"],
       leaveOn: "#case-site [data-offer]",
-      aim: { select: "[data-ring-card]", active: "[data-ring-card].is-front" },
     },
     {
-      // Stands in the stage beside the layer stack, on the empty floor above
-      // its left corner, and points out each layer as it lights up.
+      // Rides the layer stack, a layer up each time one lights.
       id: "monitor",
       select: "[data-monitor]",
+      act: "lift",
       pose: "sit",
-      ax: 0.18,
-      ay: 0.3,
-      scale: 6,
+      ax: 0.5,
+      scale: 3.8,
       enter: ["top 92%", "top 52%"],
       leave: ["top 8%", "top -12%"],
-      aim: { select: "[data-slab]", active: "[data-slab].is-on" },
     },
     {
-      // Sits on the viewer window beside the title; points out each capture
-      // as it comes to the front, and the channel under the cursor.
+      // Turns the captures over: peeks over the front one, rides it out.
       id: "screens",
-      select: "[data-viewer-win]",
-      pose: "sit",
-      ax: 0.95,
-      scale: 6,
+      select: "[data-viewer-scene]",
+      act: "flip",
+      pose: "peek",
+      ax: 0.5,
+      scale: 5,
       enter: ["top 75%", "top 25%"],
       enterOn: "[data-viewer]",
       leave: ["top bottom+=60", "top 70%"],
       leaveOn: "#screens [data-offer]",
-      aim: { select: "[data-viewer-item]", active: "[data-viewer-shot].is-front" },
     },
     {
       // The stack is shown on its own screen: it flies up close, its glass
@@ -218,19 +226,20 @@ const desktop: RouteDef = {
       leaveOn: "#stack [data-offer]",
     },
     {
-      // Sits on the form's corner under the section number, clear of the
-      // lead, and points at the field in use; when the request is sent it
-      // turns to the confirmation. Here it sets down the parcel it has
-      // carried since the hero, beside itself on the window, and the parcel
-      // drops into the window when the request goes.
+      // Peeks over the form's corner under the section number, clear of the
+      // lead, and watches the field in use. Here it sets down the parcel it
+      // has carried since the hero, beside itself on the window; when the
+      // request is sent it climbs up onto the window, the parcel drops in
+      // and it waves.
       id: "request",
       select: ".terminal",
-      pose: "sit",
+      pose: "peek",
       ax: 0.11,
       scale: 6,
       enter: ["top 100%", "top 62%"],
       leave: ["top 20%", "top 0%"],
-      wave: true,
+      occlude: true,
+      rise: ".terminalDone",
       aim: { select: ".terminalForm :is(input, select, button)", active: ".terminalDone" },
       parcel: { dx: 13, done: ".terminalDone" },
     },
@@ -249,15 +258,9 @@ const desktop: RouteDef = {
   ],
   cameos: [seam(0, 5), seam(1, 5)],
   perch: [
-    {
-      // On the progress bar, right of its percentage, clear of the tree's
-      // labels; it points out each section as the tree lights it.
-      select: ".railBar",
-      ax: 0.9,
-      pose: "sit",
-      scale: 4,
-      aim: { select: ".treeLink", active: ".treeNode.is-active > .treeLink" },
-    },
+    // On the progress bar, right of its percentage, clear of the tree's
+    // labels; it sits there quietly, looking about.
+    { select: ".railBar", ax: 0.9, pose: "sit", scale: 4 },
     // Below 1025px the panel folds into the TREE bar under the header.
     { select: ".railToggle", ax: 0.9, pose: "hover", scale: 3.5 },
   ],
@@ -268,27 +271,16 @@ const [hero, programs, ring, monitor, screens, stack, request, footer] = desktop
 /* Phones: the same route, smaller. The ring, the viewer and the board pin
    only their scene under the head there, so the mascot is glued to the same
    elements and comes along; it flies in as the scene comes up under the
-   head (a phone's head is a screen tall on its own). Above the form there
-   is only room to peek. */
+   head (a phone's head is a screen tall on its own). */
 const mobile: RouteDef = {
   stations: [
     hero,
-    { ...programs, index: 0, ax: 0.72, scale: 4.5 },
-    { ...ring, ax: 0.9, scale: 4.5, enter: ["top 100%", "top 55%"], enterOn: "[data-ring-scene]" },
-    // The stack fills the stage here; it stands in the free corner under it.
-    { ...monitor, ax: 0.86, ay: 0.98, scale: 4.5, leave: ["top 0%", "top -20%"] },
-    // The window's top edge is right under the status bar here: it sits on
-    // the channel bar under the window instead.
-    {
-      ...screens,
-      select: ".viewerList",
-      ax: 0.88,
-      scale: 4.5,
-      enter: ["top 100%", "top 55%"],
-      enterOn: "[data-viewer-scene]",
-    },
+    { ...programs, scale: 4 },
+    { ...ring, scale: 4.5, enter: ["top 100%", "top 55%"], enterOn: "[data-ring-scene]" },
+    { ...monitor, scale: 2.6, leave: ["top 0%", "top -20%"] },
+    { ...screens, scale: 3.6, enter: ["top 100%", "top 55%"], enterOn: "[data-viewer-scene]" },
     { ...stack, enterOn: "[data-board-dock]" },
-    { ...request, pose: "peek", ax: 0.8, scale: 4.5, occlude: true, parcel: { dx: -13, done: ".terminalDone" } },
+    { ...request, ax: 0.8, scale: 4.5, parcel: { dx: -13, done: ".terminalDone" } },
     { ...footer, scale: 4.5 },
   ],
   cameos: [seam(0, 4), seam(1, 4)],

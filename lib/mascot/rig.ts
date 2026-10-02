@@ -60,6 +60,10 @@ import type { Pose } from "@/lib/mascot/route";
  * The hands follow the same moods: loosely curled at rest, fists in flight,
  * limp while it dozes, spread wide after a boop, open and wiggling in a
  * wave. Given a target it points at it with the nearer arm, finger out.
+ * Given hand targets (`hands`) it reaches each arm for its own spot, fingers
+ * curled round an edge (`grip`) or spread for balance: it hangs on to the top
+ * of a card it peeks over, climbs onto a slide, rides it. `lean` tips the
+ * whole body to a side, to look out from behind something.
  * A hand given the parcel (lib/mascot/parcel.ts) holds it out front, palm
  * up and fingers closed round it, whatever the rest of the body is doing;
  * each frame reports where both grips are so the parcel can sit in one or
@@ -110,6 +114,10 @@ export type RigInput = {
   face?: FaceCue | null;
   /** Something to point at, viewport px. */
   point?: { x: number; y: number } | null;
+  /** Where each hand reaches, viewport px; overrides pointing for that hand. */
+  hands?: Hands | null;
+  /** Body tipped to a side, radians (positive to the viewer's right). */
+  lean?: number;
   /** The hand holding the parcel, 0 for none. */
   carry?: Side | 0;
   /** Told to sleep (the page powering off), whoever is around. */
@@ -133,6 +141,10 @@ export type RigInput = {
 
 export type Point3 = { x: number; y: number; z: number };
 
+/** Hand targets: `grip` curls the fingers round what they reach (an edge),
+    otherwise they are spread open. */
+export type Hands = { l?: { x: number; y: number } | null; r?: { x: number; y: number } | null; grip: boolean };
+
 /** What the parcel needs from a frame, in viewport px (z toward the viewer). */
 export type Hold = {
   /** Character space to viewport px, before the projection. */
@@ -143,7 +155,8 @@ export type Hold = {
   scale: number;
   /** Projection depth used for the frame. */
   depth: number;
-  /** The hand it wants free: pointing, or the right one while it waves or knocks. */
+  /** The hand it wants free: pointing, the right one while it waves or
+      knocks, or the one hand given a target. */
   reach: Side | 0;
 };
 
@@ -196,6 +209,8 @@ const SWAP_SECONDS = 0.09;
 /** Pointer distances from the head centre, in voxels. */
 const NEAR_HEAD = 8;
 const NEARBY = 45;
+/** Shoulder to fingertips, arm straight, in voxels. */
+const ARM_REACH = 9.5;
 
 /* Close-up parts in the voxel robot's part spaces: the forearm is modelled
    upward and twice as long in hand units, the hand and fingers upward; the
@@ -305,6 +320,12 @@ export function createRig() {
   const pointAmt: Record<Side, Spring> = { [-1]: spring(), [1]: spring() };
   const carryAmt: Record<Side, Spring> = { [-1]: spring(), [1]: spring() };
   const pointAim: Record<Side, number> = { [-1]: 1, [1]: 1 };
+  /* Reaching for a hand target, and how tightly the fingers close on it. */
+  const reachAmt: Record<Side, Spring> = { [-1]: spring(), [1]: spring() };
+  const gripAmt: Record<Side, Spring> = { [-1]: spring(), [1]: spring() };
+  const reachAim: Record<Side, number> = { [-1]: 1, [1]: 1 };
+  const reachBend: Record<Side, number> = { [-1]: 0, [1]: 0 };
+  const leanAmt = spring();
   /* A scene's turn, eased so a change of heading is a turn, not a cut. */
   const frameYaw = spring();
   const frameRoll = spring();
@@ -511,6 +532,7 @@ export function createRig() {
       step(headPitch, lookPitch * (1 - fly * 0.7), 140, 17, dt);
       step(bodyPitch, clamp(velY / 1400, -1, 1) * 0.25 * fly, 50, 10, dt);
       step(roll, -clamp(velX / 900, -1, 1) * 0.42 * fly, 50, 10, dt);
+      step(leanAmt, -(input.lean ?? 0), 70, 12, dt);
       // The antenna trails travel and whips when the head snaps round.
       step(swing, clamp(-velX / 1600, -0.6, 0.6) - clamp(headYaw.v * 0.04, -0.4, 0.4), 90, 5, dt);
 
@@ -571,7 +593,11 @@ export function createRig() {
       const sq = clamp(squash.x, -0.25, 0.25);
 
       const baseYaw = frameYaw.x;
-      const charRot = chain(rotateZ(frameRoll.x + roll.x), rotateX(tilt.x + bodyPitch.x), rotateY(baseYaw + bodyYaw.x + spin));
+      const charRot = chain(
+        rotateZ(frameRoll.x + roll.x + leanAmt.x),
+        rotateX(tilt.x + bodyPitch.x),
+        rotateY(baseYaw + bodyYaw.x + spin),
+      );
       // Depth grows with size so a close-up is never clipped front or back.
       const depth = Math.max(800, k * 40);
       const toScreen = chain(translate(sx, sy, 0), scale(k * (1 - sq * 0.6), -k * (1 + sq), k), charRot);
@@ -605,14 +631,28 @@ export function createRig() {
          its shoulder to the target (0 hangs down, pi/2 level, more is up). */
       const target = input.point;
       const pointSide: Side | 0 = target ? (target.x < input.x ? -1 : 1) : 0;
+      const hands = input.hands ?? null;
       for (const side of [-1, 1] as const) {
+        const want = hands ? (side < 0 ? hands.l : hands.r) : null;
         // The hand with the parcel waits for it to be thrown across.
-        step(pointAmt[side], pointSide === side && input.carry !== side ? 1 : 0, 110, 13, dt);
+        step(pointAmt[side], pointSide === side && input.carry !== side && !want ? 1 : 0, 110, 13, dt);
         step(carryAmt[side], input.carry === side ? 1 : 0, 130, 15, dt);
+        step(reachAmt[side], want && input.carry !== side ? 1 : 0, 120, 14, dt);
+        step(gripAmt[side], want && hands?.grip ? 1 : 0, 120, 14, dt);
         if (target && pointSide === side) {
           const dx = Math.abs(target.x - (input.x + side * PIVOTS.armR[0] * k));
           const dy = target.y - (input.y - PIVOTS.armR[1] * k);
           pointAim[side] = clamp(Math.atan2(dx, dy), 0.5, 2.5);
+        }
+        if (want) {
+          // The shoulder swings the arm toward the spot (out to its side, or
+          // across in front of the body); the elbow folds when it is near.
+          const sx = input.x + side * PIVOTS.armR[0] * k;
+          const sy = input.y - PIVOTS.armR[1] * k;
+          const dx = (want.x - sx) * side;
+          const dy = want.y - sy;
+          reachAim[side] = clamp(Math.atan2(dx, dy), -0.6, 3.05);
+          reachBend[side] = clamp(1 - Math.hypot(dx, dy) / (ARM_REACH * k), 0, 1);
         }
       }
 
@@ -620,6 +660,8 @@ export function createRig() {
         const hold = clamp(carryAmt[side].x, 0, 1);
         const wave = side === WAVE_SIDE ? waveEnv * (1 - hold) : 0;
         const aim = clamp(pointAmt[side].x, 0, 1) * (1 - wave);
+        const reach = clamp(reachAmt[side].x, 0, 1) * (1 - hold);
+        const grip = clamp(gripAmt[side].x, 0, 1);
         flexT[side] = Math.min(FLEX_SECONDS, flexT[side] + dt);
         const curl = [0, 1, 2].map((i) => {
           let c = 0.3 + Math.sin(time * 1.3 + i * 0.7 + side) * 0.06;
@@ -632,6 +674,8 @@ export function createRig() {
           c += f > 0 && f < 1 ? Math.sin(Math.PI * f) * 1.25 : 0;
           // Pointing: the first finger straight, the rest folded in.
           c = mix(c, i === 0 ? 0.02 : 1.2, aim);
+          // Reaching: fingers hooked round an edge, or spread for balance.
+          c = mix(c, mix(0.05, 1.05, grip), reach);
           // Holding: fingers and thumb closed up round the parcel.
           return mix(c, 0.95, hold);
         }) as ArmPose["curl"];
@@ -646,6 +690,17 @@ export function createRig() {
           curl,
           spread: mix(mix(mix(0.08, 0.3, Math.max(spread, wave)), 0.04, aim), 0.02, hold),
         };
+        if (reach > 0) {
+          // A hand that reaches: the arm swung to the spot, the elbow folded
+          // by how near it is, the palm turned to face it.
+          const bend = reachBend[side];
+          pose.shoulder = mix(pose.shoulder, reachAim[side] + bend * 0.5, reach);
+          pose.elbow = mix(pose.elbow, 0.1 + bend * 1.4, reach);
+          pose.sway = mix(pose.sway, 0, reach);
+          pose.twist = mix(pose.twist, mix(0.1, 0.9, grip), reach);
+          pose.wrist = mix(pose.wrist, mix(-0.25, 0.5, grip), reach);
+          pose.spread = mix(pose.spread, mix(0.35, 0.02, grip), reach);
+        }
         if (side !== KNOCK_SIDE || knockEnv <= 0) return pose;
         // Knocking: the arm up beside the head, a fist at the front edge of
         // the bezel by the temple, the forearm swinging in onto it at each
@@ -825,7 +880,9 @@ export function createRig() {
         tilt: tilt.x,
         scale: k,
         depth,
-        reach: pointSide || (waveLeft > 0 ? WAVE_SIDE : knocking ? KNOCK_SIDE : 0),
+        // A hand target for one hand only frees that hand of the parcel too.
+        reach: pointSide || (waveLeft > 0 ? WAVE_SIDE : knocking ? KNOCK_SIDE : hands && !hands.l !== !hands.r ? (hands.l ? -1 : 1) : 0),
+
       };
       return { parts, state: { glow, charge, screen: screen * (asleep ? 0.55 : 1), hole }, hold };
     },

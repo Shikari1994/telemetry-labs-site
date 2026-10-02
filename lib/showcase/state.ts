@@ -5,5 +5,13 @@
  *
  * screen: the capture in front; turn: 0..1 through the change to the next
  * one (0 while it holds); intro: 0..1 as the screen assembles on entry.
+ * outline: the WebGL screen as drawn, corners as fractions of the stage
+ * (ShowcaseScene writes it; empty without WebGL), for the mascot to hide
+ * behind.
  */
-export const showcase = { screen: 0, turn: 0, intro: 0 };
+export const showcase: { screen: number; turn: number; intro: number; outline: { x: number; y: number }[] } = {
+  screen: 0,
+  turn: 0,
+  intro: 0,
+  outline: [],
+};

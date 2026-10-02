@@ -19,6 +19,10 @@ import { normalMatrix, type M4 } from "@/lib/mascot/math";
  *
  * With `hole` on, the glass is cut out of the canvas (transparent), so the
  * page shows through the screen: the 06 stack board is laid out under it.
+ *
+ * Masks (lib/mascot/occlude.ts) are what the robot is behind: each convex
+ * polygon is stamped into the stencil first, and nothing is drawn there, so
+ * a card or a layer of the page reads as in front of it.
  */
 const VERT = `
 attribute vec3 a_pos;
@@ -101,6 +105,15 @@ void main(){
 }
 `;
 
+const MASK_VERT = `
+attribute vec2 a_xy;
+void main(){ gl_Position = vec4(a_xy, 0.0, 1.0); }
+`;
+const MASK_FRAG = `
+precision mediump float;
+void main(){ gl_FragColor = vec4(0.0); }
+`;
+
 export type PartDraw = {
   id: PartId;
   mvp: M4;
@@ -128,12 +141,13 @@ function compile(gl: WebGLRenderingContext, type: number, src: string) {
 export type MascotRenderer = {
   resize: (width: number, height: number) => void;
   clear: () => void;
-  draw: (parts: PartDraw[], state: DrawState) => void;
+  /** `masks`: convex polygons in clip space, as triangle fans; nothing is drawn inside them. */
+  draw: (parts: PartDraw[], state: DrawState, masks?: Float32Array[]) => void;
   dispose: () => void;
 };
 
 export function createMascotRenderer(canvas: HTMLCanvasElement): MascotRenderer | null {
-  const gl = canvas.getContext("webgl", { alpha: true, antialias: false, depth: true, premultipliedAlpha: true });
+  const gl = canvas.getContext("webgl", { alpha: true, antialias: false, depth: true, stencil: true, premultipliedAlpha: true });
   if (!gl) return null;
 
   const vs = compile(gl, gl.VERTEX_SHADER, VERT);
@@ -144,25 +158,44 @@ export function createMascotRenderer(canvas: HTMLCanvasElement): MascotRenderer 
   gl.attachShader(program, fs);
   gl.linkProgram(program);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
+
+  const maskVs = compile(gl, gl.VERTEX_SHADER, MASK_VERT);
+  const maskFs = compile(gl, gl.FRAGMENT_SHADER, MASK_FRAG);
+  const maskProgram = gl.createProgram();
+  if (!maskVs || !maskFs || !maskProgram) return null;
+  gl.attachShader(maskProgram, maskVs);
+  gl.attachShader(maskProgram, maskFs);
+  gl.linkProgram(maskProgram);
+  if (!gl.getProgramParameter(maskProgram, gl.LINK_STATUS)) return null;
+  const maskXy = gl.getAttribLocation(maskProgram, "a_xy");
+  const maskBuffer = gl.createBuffer();
   gl.useProgram(program);
 
   const mesh = buildMascotMesh();
   const buffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, mesh.data, gl.STATIC_DRAW);
 
   const stride = FLOATS_PER_VERTEX * 4;
-  const attribs: [string, number, number][] = [
-    ["a_pos", 3, 0],
-    ["a_nrm", 3, 3],
-    ["a_col", 3, 6],
-    ["a_kind", 1, 9],
-  ];
-  for (const [name, size, offset] of attribs) {
-    const loc = gl.getAttribLocation(program, name);
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, size, gl.FLOAT, false, stride, offset * 4);
-  }
+  const attribs: [number, number, number][] = (
+    [
+      ["a_pos", 3, 0],
+      ["a_nrm", 3, 3],
+      ["a_col", 3, 6],
+      ["a_kind", 1, 9],
+    ] as const
+  ).map(([name, size, offset]) => [gl.getAttribLocation(program, name), size, offset]);
+  /* WebGL 1 keeps one set of attribute pointers: the mesh's are set again
+     after the masks have used theirs. */
+  const bindMesh = () => {
+    gl.useProgram(program);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    for (const [loc, size, offset] of attribs) {
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, size, gl.FLOAT, false, stride, offset * 4);
+    }
+  };
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, mesh.data, gl.STATIC_DRAW);
+  bindMesh();
 
   const u = (name: string) => gl.getUniformLocation(program, name);
   const uMvp = u("u_mvp");
@@ -191,8 +224,28 @@ export function createMascotRenderer(canvas: HTMLCanvasElement): MascotRenderer 
     clear() {
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     },
-    draw(parts, state) {
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    draw(parts, state, masks) {
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+      if (masks?.length) {
+        // Stamp the masks into the stencil, colour off; then draw only outside them.
+        gl.useProgram(maskProgram);
+        gl.bindBuffer(gl.ARRAY_BUFFER, maskBuffer);
+        gl.enableVertexAttribArray(maskXy);
+        gl.vertexAttribPointer(maskXy, 2, gl.FLOAT, false, 0, 0);
+        gl.disable(gl.DEPTH_TEST);
+        gl.enable(gl.STENCIL_TEST);
+        gl.colorMask(false, false, false, false);
+        gl.stencilFunc(gl.ALWAYS, 1, 0xff);
+        gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+        for (const fan of masks) {
+          gl.bufferData(gl.ARRAY_BUFFER, fan, gl.STREAM_DRAW);
+          gl.drawArrays(gl.TRIANGLE_FAN, 0, fan.length / 2);
+        }
+        gl.colorMask(true, true, true, true);
+        gl.stencilFunc(gl.EQUAL, 0, 0xff);
+        gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        bindMesh();
+      } else gl.disable(gl.STENCIL_TEST);
       gl.uniform1f(uGlow, state.glow);
       gl.uniform1f(uCharge, state.charge);
       gl.uniform1f(uScreen, state.screen);
@@ -222,9 +275,10 @@ export function createMascotRenderer(canvas: HTMLCanvasElement): MascotRenderer 
     },
     dispose() {
       gl.deleteBuffer(buffer);
+      gl.deleteBuffer(maskBuffer);
       gl.deleteProgram(program);
-      gl.deleteShader(vs);
-      gl.deleteShader(fs);
+      gl.deleteProgram(maskProgram);
+      [vs, fs, maskVs, maskFs].forEach((shader) => gl.deleteShader(shader));
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     },
   };

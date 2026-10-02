@@ -14,7 +14,9 @@ const total = String(screens.length).padStart(2, "0");
  * window and the stack moves up a place (MotionProvider pins the section on
  * desktop, the window and the channel under the head on phones); the list
  * selects the same channel. Reduced motion gets the captures as a flat,
- * snapping row and the whole list.
+ * snapping row and the whole list. The mascot turns the captures over: it
+ * peeks over the front one, climbs onto its top edge (`data-grip`) and rides
+ * it down as it tips out (components/mascot).
  */
 export function Screens() {
   return (
@@ -48,6 +50,7 @@ export function Screens() {
                     <figcaption className="viewerTag" aria-hidden="true">
                       {screen.code}
                     </figcaption>
+                    <i className="viewerGrip" aria-hidden="true" data-grip />
                   </figure>
                 ))}
               </div>

@@ -176,6 +176,10 @@ export type ShowcaseRenderer = {
   /** The captures, in order. */
   setScreens: (images: HTMLImageElement[]) => void;
   draw: (screen: number, turn: number, intro: number) => void;
+  /** The slab's front face at rest under the same camera, as fractions of
+      the stage (0..1 from its top left), corner by corner: what the mascot
+      hides behind. */
+  outline: (screen: number, turn: number, intro: number) => { x: number; y: number }[];
   dispose: () => void;
 };
 
@@ -358,6 +362,22 @@ export function createShowcaseRenderer(canvas: HTMLCanvasElement): ShowcaseRende
   let aspect = 1;
   let ratio = 1;
 
+  /* Rest: the slab square on, its top near the stage's top, the board
+     showing under it. A change swings the camera aside and back; the entry
+     swings it in from the side. */
+  const camera = (k: number, turn: number, intro: number) => {
+    const fit = Math.tan(FOV / 2);
+    const aim = -SIZE.h * 0.07;
+    const rest = Math.max((SIZE.h / 2 - aim) / (0.97 * fit), SIZE.w / 2 / (0.94 * fit * aspect));
+    const swing = Math.sin(Math.PI * clamp(turn, 0, 1));
+    const enter = 1 - easeOutCubic(clamp(intro, 0, 1));
+    const side = k % 2 ? -1 : 1;
+    const yaw = side * 0.32 * swing - 0.6 * enter;
+    const dist = rest + swing * 6 + enter * 4;
+    const eye: V3 = [Math.sin(yaw) * dist, 1.2 + swing * 2.4 + enter * 5, Math.cos(yaw) * dist];
+    return chain(perspective(FOV, aspect, 0.5, 200), lookAt(eye, [0, aim, 0]));
+  };
+
   return {
     resize(width, height, nextRatio) {
       ratio = nextRatio;
@@ -377,20 +397,7 @@ export function createShowcaseRenderer(canvas: HTMLCanvasElement): ShowcaseRende
       const k = clamp(Math.round(screen), 0, last);
       // While a screen holds, its blocks' backs carry it too.
       const next = turn > 0 ? Math.min(k + 1, last) : k;
-
-      // Rest: the slab square on, its top near the stage's top, the board
-      // showing under it. A change swings the camera aside and back; the
-      // entry swings it in from the side.
-      const fit = Math.tan(FOV / 2);
-      const aim = -SIZE.h * 0.07;
-      const rest = Math.max((SIZE.h / 2 - aim) / (0.97 * fit), SIZE.w / 2 / (0.94 * fit * aspect));
-      const swing = Math.sin(Math.PI * clamp(turn, 0, 1));
-      const enter = 1 - easeOutCubic(clamp(intro, 0, 1));
-      const side = k % 2 ? -1 : 1;
-      const yaw = side * 0.32 * swing - 0.6 * enter;
-      const dist = rest + swing * 6 + enter * 4;
-      const eye: V3 = [Math.sin(yaw) * dist, 1.2 + swing * 2.4 + enter * 5, Math.cos(yaw) * dist];
-      const vp = chain(perspective(FOV, aspect, 0.5, 200), lookAt(eye, [0, aim, 0]));
+      const vp = camera(k, turn, intro);
 
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.uniformMatrix4fv(uVp, false, vp);
@@ -405,6 +412,23 @@ export function createShowcaseRenderer(canvas: HTMLCanvasElement): ShowcaseRende
       bind(2, screens[k].glow);
       bind(3, screens[next].glow);
       gl.drawArrays(gl.TRIANGLES, 0, count);
+    },
+    outline(screen, turn, intro) {
+      const vp = camera(clamp(Math.round(screen), 0, Math.max(0, screens.length - 1)), turn, intro);
+      const z = SIZE.d / 2;
+      return [
+        [-1, 1],
+        [1, 1],
+        [1, -1],
+        [-1, -1],
+      ].map(([sx, sy]) => {
+        const [x, y] = [(sx * SIZE.w) / 2, (sy * SIZE.h) / 2];
+        const w = vp[3] * x + vp[7] * y + vp[11] * z + vp[15];
+        return {
+          x: ((vp[0] * x + vp[4] * y + vp[8] * z + vp[12]) / w + 1) / 2,
+          y: (1 - (vp[1] * x + vp[5] * y + vp[9] * z + vp[13]) / w) / 2,
+        };
+      });
     },
     dispose() {
       screens.forEach(({ image, glow }) => {

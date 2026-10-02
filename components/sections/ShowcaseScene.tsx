@@ -86,6 +86,7 @@ export function ShowcaseScene() {
         drawn = state;
         dirty = false;
         renderer.draw(showcase.screen, showcase.turn, showcase.intro);
+        showcase.outline = renderer.outline(showcase.screen, showcase.turn, showcase.intro);
       };
       gsap.ticker.add(tick);
 
@@ -94,6 +95,7 @@ export function ShowcaseScene() {
         gsap.ticker.remove(tick);
         observer.disconnect();
         watch.kill();
+        showcase.outline = [];
         stage.classList.remove("is-gl");
         renderer.dispose();
       };
