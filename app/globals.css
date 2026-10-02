@@ -2122,6 +2122,8 @@ html:not(.motion-enabled) .deckPort:not(.is-free) i {
   }
   .motion-enabled .deckScene {
     grid-template-rows: minmax(0, 1fr) auto;
+    /* The deck's world is size-contained: it needs the row's height given. */
+    align-items: stretch;
     height: calc(100svh - var(--header-h) - var(--rail-h) - 24px);
     min-height: 520px;
     gap: 18px;
