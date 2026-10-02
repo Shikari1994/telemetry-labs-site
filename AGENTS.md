@@ -48,9 +48,18 @@ The visual/motion reference is ChainGPT Labs (`https://labs.chaingpt.org/`) as d
   The mascot rides every transit: each stretch has a `guide` (where the
   robot is in that world for a progress); `TransitScene` puts it through
   the frame's camera and publishes it in `ride` (`lib/transit/guide.ts`),
-  and the mascot draws it as that camera sees it, clipped to the uncovered
-  board. It goes through the way out before the camera; a new stretch needs
-  its own guide.
+  and the mascot takes it once the board is uncovered under it and draws it
+  as that camera sees it. It jumps in off the page ahead of the camera, goes
+  through the way out before it and flies back to the page; a new stretch
+  needs its own guide.
+- The mascot never vanishes once the intro has played (the owner's call).
+  Between stations it sits on its perch (`perch` in `lib/mascot/route.ts`:
+  the TREE panel's progress bar from 1025px, hanging under the TREE bar
+  below that), kept on screen; stations and seams fly it over from the
+  perch and back, and any other change of what it follows (a ride, the
+  dive, a rebuilt route) is flown from where it was drawn
+  (`components/mascot/Mascot.tsx`). Never hide it or cut it from one spot
+  to another; a new station must keep it on screen.
 - Seams: every other section boundary is a short `Seam`
   (`components/sections/Seam.tsx`) in the page's own language: the next
   number, a stepped load bar and the name on one row, scrubbed so it lands

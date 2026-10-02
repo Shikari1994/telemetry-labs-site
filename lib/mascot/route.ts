@@ -1,9 +1,14 @@
 /**
  * Where the mascot lives on the homepage, and what it does there.
  *
- * A station glues the mascot to a DOM element: it flies in while the element
- * scrolls into its `enter` range, holds a pose on it, and leaves over the
- * `leave` range. Ranges are ScrollTrigger start strings, measured on the
+ * Once the intro has played it is always on screen. Between stations it sits
+ * on its perch, the page's progress bar in the TREE panel (hanging under the
+ * TREE bar where that panel folds into one), which stays on screen as the
+ * page scrolls; every flight starts where it is and ends where it goes.
+ *
+ * A station glues the mascot to a DOM element: it flies over from its perch
+ * while the element scrolls into its `enter` range, holds a pose on it, and
+ * flies back to its perch over the `leave` range. Ranges are ScrollTrigger start strings, measured on the
  * element itself or on `enterOn`/`leaveOn`, so pins and resizes are measured
  * by ScrollTrigger rather than by hand. A station inside a pinned stage
  * measures its ranges outside the pin: on the section for the way in, and on
@@ -16,8 +21,8 @@
  * At a screen station it is the section's scene itself: a close-up whose
  * glass covers the station's element, showing the page through it.
  *
- * A cameo is a scrubbed pass between stations: it rides the load bar of a
- * seam as the bar fills, then flies on to the next section.
+ * A cameo is a scrubbed pass between stations: it hops off its perch onto
+ * the load bar of a seam, rides it as the bar fills, then hops back.
  *
  * Selectors reuse hooks the sections already expose for motion.
  */
@@ -44,8 +49,8 @@ export type StationDef = {
       `ay` is ignored (the top edge); for sit it defaults to the top edge. */
   ax: number;
   ay?: number;
-  /** CSS px per voxel. */
-  scale: number;
+  /** CSS px per voxel; without it, its perch's size. */
+  scale?: number;
   /** Take the voxel size from the element's layout width instead, so CSS
       can size the mascot together with the scene it stands in. */
   scaleFromElement?: boolean;
@@ -61,9 +66,6 @@ export type StationDef = {
   leave: [string, string] | null;
   /** Measure `leave` on this element instead of the station's own. */
   leaveOn?: string;
-  /** "down": leaves by dropping out under the screen, into the transit
-      below, instead of flying up and away. */
-  exit?: "down";
   /** The page powers off here (lib/motion/finale.ts): it dozes and goes dark with it. */
   halts?: boolean;
   /** Mask the element so the mascot reads as behind it. */
@@ -72,8 +74,8 @@ export type StationDef = {
   wave?: boolean;
   /** A close-up whose glass covers the element (as wide as the glass):
       the element shows through it once it has knocked its screen on
-      (lib/mascot/director.ts, `data-screen` on the element). `scale` is
-      its size on the way in and out; pose and anchor are ignored. */
+      (lib/mascot/director.ts, `data-screen` on the element). It grows
+      from its perch's size on the way; pose, anchor and scale are ignored. */
   screen?: boolean;
   aim?: AimDef;
   /** Where it sets the parcel down (lib/mascot/parcel.ts): on the element's
@@ -91,12 +93,29 @@ export type CameoDef = {
   end: string;
   /** The bar it rides, inside the trigger. */
   along: string;
-  /** Part of the range spent on the bar; before it flies in, after it on. */
+  /** Part of the range spent riding the bar; before it, it waits at the
+      bar's start, after it at the end. */
   span: [number, number];
   scale: number;
 };
 
-export type RouteDef = { stations: StationDef[]; cameos: CameoDef[] };
+/** Where it waits between stations. */
+export type PerchDef = {
+  select: string;
+  /** Anchor along the element, 0..1. */
+  ax: number;
+  /** sit: on the element's top edge; hover: hanging under its bottom edge. */
+  pose: "sit" | "hover";
+  scale: number;
+  aim?: AimDef;
+};
+
+export type RouteDef = {
+  stations: StationDef[];
+  cameos: CameoDef[];
+  /** The first of these laid out on the page is its perch. */
+  perch: PerchDef[];
+};
 
 /* Seams fill their bar over this scrub (MotionProvider): it lands just before the signal line. */
 const seam = (index: number, scale: number): CameoDef => ({
@@ -116,7 +135,8 @@ const desktop: RouteDef = {
       // Stands on the socket of the hero island, seen from the island
       // camera's pitch. The intro flies it here from mid-screen. It points
       // at the work's screen under the cursor and points out each change of
-      // the current one.
+      // the current one. It leaves with the scroll, as the first transit
+      // comes up, and the transit takes it from its perch.
       id: "hero",
       select: "[data-island-spot]",
       pose: "sit",
@@ -127,7 +147,6 @@ const desktop: RouteDef = {
       enter: null,
       opening: true,
       leave: ["top 34%", "top -6%"],
-      exit: "down",
       aim: { select: "[data-island-work]", active: "[data-island-work][data-current]" },
     },
     {
@@ -192,7 +211,6 @@ const desktop: RouteDef = {
       select: "[data-board-screen]",
       pose: "hover",
       ax: 0.5,
-      scale: 6,
       screen: true,
       enter: ["top 95%", "top 20%"],
       enterOn: "[data-board]",
@@ -230,6 +248,19 @@ const desktop: RouteDef = {
     },
   ],
   cameos: [seam(0, 5), seam(1, 5)],
+  perch: [
+    {
+      // On the progress bar, right of its percentage, clear of the tree's
+      // labels; it points out each section as the tree lights it.
+      select: ".railBar",
+      ax: 0.9,
+      pose: "sit",
+      scale: 4,
+      aim: { select: ".treeLink", active: ".treeNode.is-active > .treeLink" },
+    },
+    // Below 1025px the panel folds into the TREE bar under the header.
+    { select: ".railToggle", ax: 0.9, pose: "hover", scale: 3.5 },
+  ],
 };
 
 const [hero, programs, ring, monitor, screens, stack, request, footer] = desktop.stations;
@@ -256,11 +287,12 @@ const mobile: RouteDef = {
       enter: ["top 100%", "top 55%"],
       enterOn: "[data-viewer-scene]",
     },
-    { ...stack, scale: 4.5, enterOn: "[data-board-dock]" },
+    { ...stack, enterOn: "[data-board-dock]" },
     { ...request, pose: "peek", ax: 0.8, scale: 4.5, occlude: true, parcel: { dx: -13, done: ".terminalDone" } },
     { ...footer, scale: 4.5 },
   ],
   cameos: [seam(0, 4), seam(1, 4)],
+  perch: [{ select: ".railToggle", ax: 0.88, pose: "hover", scale: 3 }],
 };
 
 export const routes = { desktop, mobile } as const;

@@ -443,7 +443,10 @@ export function createRig() {
 
       step(flyAmt, input.fly, 60, 14, dt);
       step(hoverAmt, input.pose === "hover" ? 1 : 0, 60, 14, dt);
-      step(tilt, input.tilt ?? TILT, 40, 12, dt);
+      // A scene's camera sets its tilt; it eases into it and back out.
+      const frame = input.frame ?? null;
+      if (frame) step(tilt, frame.tilt, 90, 16, dt);
+      else step(tilt, input.tilt ?? TILT, 40, 12, dt);
       const fly = clamp(flyAmt.x, 0, 1);
       const hover = clamp(hoverAmt.x, 0, 1) * (1 - fly);
 
@@ -489,21 +492,19 @@ export function createRig() {
       lookYaw = mix(lookYaw, 0, lock);
       lookPitch = mix(lookPitch, 0, lock);
       // In a scene the body already faces its way; screen travel only banks it.
-      const frame = input.frame ?? null;
+      // It turns into the scene's heading and back out of it on the page.
       const flyYaw = frame ? 0 : clamp(velX / 450, -1, 1) * 1.1;
-      if (frame) {
-        const yawTo = unwrap(frame.yaw, frameYaw.x);
-        const rollTo = unwrap(frame.roll, frameRoll.x);
-        if (snapFrame) {
-          frameYaw.x = frame.yaw;
-          frameRoll.x = frame.roll;
-          frameYaw.v = frameRoll.v = 0;
-        } else {
-          step(frameYaw, yawTo, 60, 13, dt);
-          step(frameRoll, rollTo, 90, 16, dt);
-        }
+      const yawTo = unwrap(frame?.yaw ?? 0, frameYaw.x);
+      const rollTo = unwrap(frame?.roll ?? 0, frameRoll.x);
+      if (snapFrame) {
+        frameYaw.x = yawTo;
+        frameRoll.x = rollTo;
+        frameYaw.v = frameRoll.v = 0;
         snapFrame = false;
-      } else snapFrame = true;
+      } else {
+        step(frameYaw, yawTo, 60, 13, dt);
+        step(frameRoll, rollTo, 90, 16, dt);
+      }
 
       step(headYaw, mix(lookYaw, flyYaw, fly * 0.85), 170, 18, dt);
       step(bodyYaw, mix(lookYaw * 0.5, flyYaw, fly), 26, 8.5, dt);
@@ -569,10 +570,8 @@ export function createRig() {
       const sy = Math.round((input.y + bob + hop.x) / px) * px;
       const sq = clamp(squash.x, -0.25, 0.25);
 
-      const baseYaw = frame ? frameYaw.x : 0;
-      const charRot = frame
-        ? chain(rotateZ(frameRoll.x + roll.x), rotateX(frame.tilt + bodyPitch.x), rotateY(baseYaw + bodyYaw.x + spin))
-        : chain(rotateZ(roll.x), rotateX(tilt.x + bodyPitch.x), rotateY(bodyYaw.x + spin));
+      const baseYaw = frameYaw.x;
+      const charRot = chain(rotateZ(frameRoll.x + roll.x), rotateX(tilt.x + bodyPitch.x), rotateY(baseYaw + bodyYaw.x + spin));
       // Depth grows with size so a close-up is never clipped front or back.
       const depth = Math.max(800, k * 40);
       const toScreen = chain(translate(sx, sy, 0), scale(k * (1 - sq * 0.6), -k * (1 + sq), k), charRot);
@@ -823,7 +822,7 @@ export function createRig() {
         screen: toScreen,
         grips,
         yaw: baseYaw + bodyYaw.x + spin,
-        tilt: frame ? frame.tilt : tilt.x,
+        tilt: tilt.x,
         scale: k,
         depth,
         reach: pointSide || (waveLeft > 0 ? WAVE_SIDE : knocking ? KNOCK_SIDE : 0),

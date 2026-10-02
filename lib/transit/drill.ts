@@ -250,8 +250,8 @@ function camera(p: number): Pose {
 }
 
 /**
- * The mascot on the drill. It drops past the camera into the via and falls
- * ahead of it down the bore on its back, looking up at the lens, square to
+ * The mascot on the drill. It jumps in off the page just ahead of the camera,
+ * over the via, and falls ahead of it down the bore on its back, looking up at the lens, square to
  * it all the way, so the board and the rock turn round the two of them. Out
  * of the bend it rolls over to face the way on, then darts through the gate
  * before the camera.
@@ -261,7 +261,7 @@ function guide(p: number, cam: Pose): Guide | null {
   const turn = span(p, 0.64, 0.72);
   const dash = span(p, 0.72, 0.84);
   const wobble = Math.sin(p * 40) * 0.35 * (1 - turn);
-  const d = mix(-1, 7, pass) + dash * dash * 50;
+  const d = mix(4, 7, pass) + dash * dash * 50;
   const sx = mix(1.8, 0.8, pass) * (1 - turn) + wobble;
   const sy = mix(mix(1.4, 0.4, pass), -0.6, turn);
   const at = chase(cam, d, sx, sy, Math.PI * turn, false);

@@ -6,6 +6,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { PRELOADER_KEY } from "@/components/motion/PagePreloader";
 import { CLOSEUP_HD, createDirector, type Director, type Intro, type Placement } from "@/lib/mascot/director";
 import { GREETING_LENGTH } from "@/lib/mascot/hd";
+import { clamp, easeInOut } from "@/lib/mascot/math";
 import { HEAD_CENTER_Y } from "@/lib/mascot/model";
 import { createParcel, type Stage } from "@/lib/mascot/parcel";
 import { createMascotRenderer, type DrawState } from "@/lib/mascot/renderer";
@@ -50,8 +51,14 @@ import { jumpTo } from "@/lib/motion/jump";
  * In a transit it leaves the page for the board's world: the transit scene
  * (components/motion/TransitScene) puts the stretch's path for it through
  * its camera and hands over where it is and how it is turned (`ride`,
- * lib/transit/guide). Then it is drawn as that camera sees it, clipped to
- * where the board is uncovered.
+ * lib/transit/guide). It takes the ride once the board is uncovered under
+ * it, and is drawn as that camera sees it.
+ *
+ * Once the intro has played it never leaves the screen. Between stations it
+ * sits on its perch (lib/mascot/route.ts), and whenever what it follows
+ * changes (a station, a seam, a ride, the dive, a rebuilt route) it flies
+ * from where it was drawn to the new spot: the gap is carried and closed
+ * over a short hop, so nothing ever cuts it from one place to another.
  *
  * Draws on the GSAP ticker after Lenis and ScrollTrigger have updated, so its
  * reading of element boxes matches the frame being painted. No React state is
@@ -66,6 +73,8 @@ const closeupPixel = (scale: number) => Math.min(4, Math.max(2, Math.round(scale
 /** Dive into a poster, and when the page jump starts within it. */
 const DIVE_SECONDS = 0.55;
 const DIVE_JUMP_AT = 0.4;
+/** A hop between two things it follows: seconds for no distance, more per px, and the longest. */
+const HOP = { base: 0.45, perPx: 1 / 1600, max: 1.1 };
 /** How long it points a new current item out. */
 const CUE_MS = 1400;
 /** Pace of the opening against its timeline's seconds; quicker again once the session has seen it. */
@@ -125,14 +134,16 @@ export function Mascot() {
       if (el.dataset.screen !== shown) el.dataset.screen = shown;
     };
 
-    /* Route and its triggers are rebuilt whenever the breakpoint flips. */
+    /* Route and its triggers are rebuilt whenever the breakpoint flips; it
+       flies over to wherever the new route has it. */
+    let rebuilt = false;
     const media = gsap.matchMedia();
     media.add({ desktop: "(min-width: 761px)", mobile: "(max-width: 760px)" }, (context) => {
       const next = createDirector(context.conditions?.desktop ? routes.desktop : routes.mobile);
       director = next;
       screenMode = "dark";
       next.screens.forEach((el) => showScreen(el, "dark"));
-      rig.teleport();
+      rebuilt = true;
       return () => {
         director = null;
         next.screens.forEach((el) => delete el.dataset.screen);
@@ -294,7 +305,6 @@ export function Mascot() {
     /* Works' screens: a click is a dive (pointing is the hero station's aim). */
     const posters = Array.from(document.querySelectorAll<HTMLAnchorElement>("[data-island-work]"));
     let dive: { el: HTMLAnchorElement; t: number; from: Placement & { visible: true }; jumped: boolean } | null = null;
-    let divedAt = 0;
     let lastPlace: Placement = { visible: false };
     const posterListeners = posters.map((el) => {
       const click = (event: MouseEvent) => {
@@ -309,8 +319,8 @@ export function Mascot() {
       return () => el.removeEventListener("click", click);
     });
 
-    /* Flies from where it stood into the screen's centre, shrinking away; the
-       page jump starts on the way so the two overlap. */
+    /* Flies from where it stood into the screen's centre, shrinking; the page
+       jump starts on the way so the two overlap, and it comes out with it. */
     const placeDive = (dt: number): Placement => {
       if (!dive) return { visible: false };
       dive.t += dt / DIVE_SECONDS;
@@ -324,12 +334,11 @@ export function Mascot() {
       }
       if (t >= 1) {
         dive = null;
-        divedAt = performance.now();
         return { visible: false };
       }
       const goal = centre(el);
       const e = t * t;
-      const k = from.scale * (1 - 0.75 * e);
+      const k = from.scale * (1 - 0.6 * e);
       const headX = gsap.utils.interpolate(from.x, goal.x, e);
       const headY = gsap.utils.interpolate(from.y - HEAD_CENTER_Y * from.scale, goal.y, e) - Math.sin(Math.PI * t) * 40;
       return { ...from, x: headX, y: headY + HEAD_CENTER_Y * k, scale: k, pose: "hover", fly: 1, settled: false };
@@ -345,6 +354,12 @@ export function Mascot() {
     let current: Element | null = null;
     let cueUntil = 0;
     let last = performance.now();
+    /* Continuity: where it was drawn last frame, what it followed, and the
+       hop from where it was drawn when that changed to the new spot. */
+    type Spot = { x: number; y: number; scale: number };
+    let drawnAt: Spot | null = null;
+    let following = "";
+    let hopping: { from: Spot; lift: number; t: number; seconds: number } | null = null;
 
     const step = (forcedDt?: number) => {
       const now = performance.now();
@@ -362,15 +377,12 @@ export function Mascot() {
       }
 
       let place = director.evaluate(window.scrollY, width, height, intro, dt);
-      // After a dive it stays inside the screen until the hero is left, or
-      // until the page is back at rest on the hero (a jump that went nowhere).
-      if (divedAt) {
-        if (!place.visible || place.key !== "hero" || (place.settled && now - divedAt > 1500)) divedAt = 0;
-        else place = { visible: false };
+      if (dive) {
+        const diving = placeDive(dt);
+        if (diving.visible) place = diving;
       }
-      if (dive) place = placeDive(dt);
-      // On the board the transit owns it.
-      const riding = ride.visible && !dive;
+      // On the board the transit owns it, once the board is uncovered under its head.
+      const riding = ride.visible && !dive && ride.y - HEAD_CENTER_Y * ride.scale > ride.top;
       if (riding) {
         place = {
           visible: true,
@@ -388,6 +400,44 @@ export function Mascot() {
         if (ride.wave && !rideWave) rig.wave();
       }
       rideWave = riding && ride.wave;
+
+      /* A change of what it follows is flown, not cut: from where it was
+         drawn to the new spot (live, so it lands where that is by then), over
+         a hop with an arc. */
+      if (place.visible) {
+        const follows = `${dive ? "dive:" : ""}${place.key}`;
+        if (drawnAt && (follows !== following || rebuilt)) {
+          const far = Math.hypot(drawnAt.x - place.x, drawnAt.y - place.y);
+          hopping =
+            far > 2 || Math.abs(Math.log(drawnAt.scale / place.scale)) > 0.02
+              ? { from: drawnAt, lift: Math.min(140, far * 0.18), t: 0, seconds: Math.min(HOP.max, HOP.base + far * HOP.perPx) }
+              : null;
+        }
+        following = follows;
+        rebuilt = false;
+        if (hopping) {
+          hopping.t += dt / hopping.seconds;
+          if (hopping.t >= 1) hopping = null;
+          else {
+            const { from } = hopping;
+            const e = easeInOut(hopping.t);
+            const up = Math.sin(Math.PI * hopping.t);
+            place = {
+              ...place,
+              x: from.x + (place.x - from.x) * e,
+              y: from.y + (place.y - from.y) * e - up * hopping.lift,
+              scale: from.scale * Math.exp(Math.log(place.scale / from.scale) * e),
+              fly: Math.max(place.fly, clamp(up * 1.6, 0, 1)),
+              settled: false,
+              aim: null,
+            };
+          }
+        }
+        drawnAt = { x: place.x, y: place.y, scale: place.scale };
+      } else {
+        drawnAt = null;
+        hopping = null;
+      }
       lastPlace = place;
 
       /* The screen: knocked on once it has settled over the element, a beat
@@ -420,7 +470,7 @@ export function Mascot() {
       const hole = screenMode === "static" || screenMode === "on" || screenMode === "off";
 
       setHome(place.visible && place.key === "hero" && place.settled);
-      const spot = director.parcelSpot();
+      const spot = director.parcelSpot(width, height);
       let frame: ReturnType<typeof rig.update> | null = null;
       if (!place.visible) {
         wasVisible = false;
@@ -431,7 +481,7 @@ export function Mascot() {
           fit();
         }
       } else {
-        if (!wasVisible || place.key !== lastKey) rig.teleport();
+        if (!wasVisible) rig.teleport();
         // Landing and greeting fire once on arrival, not while holding.
         if (place.settled && !(wasSettled && place.key === lastKey)) {
           if (place.pose === "sit") rig.land();
@@ -449,7 +499,7 @@ export function Mascot() {
           fit();
         }
 
-        const nextClip = riding ? (ride.top > 0 ? `inset(${Math.round(ride.top)}px 0 0 0)` : "none") : clipOutside(place.occluders);
+        const nextClip = clipOutside(place.occluders);
         if (nextClip !== clip) canvas.style.clipPath = clip = nextClip;
 
         /* Aim: the hovered or focused item, else the section's current item,
@@ -544,6 +594,15 @@ export function Mascot() {
         for (let i = 0; i < frames; i += 1) step(1 / 60);
         return canvas.toDataURL("image/png");
       };
+      /* `__mascotTrace(frames)` steps that many frames and says where it is
+         drawn after each, for checking a route without a running clock. */
+      (window as Window & { __mascotTrace?: (frames?: number) => unknown[] }).__mascotTrace = (frames = 1) =>
+        Array.from({ length: frames }, () => {
+          step(1 / 60);
+          if (!lastPlace.visible) return null;
+          const { key, x, y, scale, settled } = lastPlace;
+          return { key, x: Math.round(x), y: Math.round(y), scale: Math.round(scale * 10) / 10, settled };
+        });
     }
 
     return () => {

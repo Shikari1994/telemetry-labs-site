@@ -7,9 +7,10 @@ import type { Pose, V3 } from "@/lib/transit/mesh";
  * its world for a flight progress (`Stretch.guide`); the transit scene puts
  * that through its own camera and publishes the result in `ride`, which the
  * mascot (components/mascot) reads on the same tick and draws over the board.
- * So the robot flies through the same world the camera does: it overtakes the
- * camera, leads the way, drops down the bore, runs the route across the
- * board, and goes through the way out first.
+ * So the robot flies through the same world the camera does: it jumps in
+ * ahead of the camera, leads the way, drops down the bore, runs the route
+ * across the board, and goes through the way out first. Where a stretch has
+ * no spot for it, the mascot stays on (or flies back to) the page.
  *
  * The robot is drawn on its own canvas, so the board never hides it; paths
  * keep it in open air on the camera's side of everything.
@@ -72,7 +73,8 @@ export type Ride = {
   fly: number;
   face: FaceCue | null;
   wave: boolean;
-  /** Viewport y of the transit's top edge: nothing above it is board. */
+  /** Viewport y of the transit's top edge: nothing above it is board, so
+      the mascot takes the ride only below it. */
   top: number;
 };
 
@@ -94,7 +96,7 @@ export const ride: Ride = {
 
 /** Smallest distance in front of the camera at which the robot is drawn. */
 const NEAR = 1.2;
-/** Largest drawn size, CSS px per voxel: an overtake passes the lens this big. */
+/** Largest drawn size, CSS px per voxel: nearer the lens it is left to the page. */
 const MAX_SCALE = 44;
 
 /**

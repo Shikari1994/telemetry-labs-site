@@ -152,7 +152,7 @@ export function TransitScene() {
         fly: guide.fly,
         face: guide.face ?? null,
         wave: Boolean(guide.wave),
-        // Only where the board is uncovered: the robot never shows over the page.
+        // Where the board is uncovered: the mascot takes the ride below it.
         top: Math.max(0, height - edge * pixel),
       });
     };

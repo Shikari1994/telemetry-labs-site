@@ -1,10 +1,10 @@
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { pace as follow } from "@/lib/motion/pace";
-import { clamp, easeInCubic, easeInOut, easeOutCubic, mix } from "@/lib/mascot/math";
+import { clamp, easeInOut, easeOutCubic, mix } from "@/lib/mascot/math";
 import { GLASS_WIDE } from "@/lib/mascot/hd";
-import { HEAD_CENTER_Y, PEEK_DEPTH, PEEK_HIDE } from "@/lib/mascot/model";
+import { HEAD_CENTER_Y, PEEK_DEPTH } from "@/lib/mascot/model";
 import type { Spot } from "@/lib/mascot/parcel";
-import type { AimDef, CameoDef, Pose, RouteDef, StationDef } from "@/lib/mascot/route";
+import type { AimDef, CameoDef, PerchDef, Pose, RouteDef, StationDef } from "@/lib/mascot/route";
 
 /**
  * Maps the scroll position to where the mascot is and what it is doing.
@@ -20,13 +20,19 @@ import type { AimDef, CameoDef, Pose, RouteDef, StationDef } from "@/lib/mascot/
  * middle of the viewport, about half its height, then flies it in an arc
  * down onto its spot, shrinking as it goes.
  *
+ * Once the intro has played it is never off screen: with no station, cameo
+ * or ride wanting it, it sits on its perch (route.ts), kept inside the
+ * viewport, and every station and cameo flies it over from the perch and
+ * back. Anything this cannot join up (a station dropped mid-flight, a ride
+ * starting) the mascot flies over itself (components/mascot).
+ *
  * While it holds a station the placement carries the station's aim, which
  * the mascot resolves against the cursor and the section's current item.
  *
- * A `screen` station is a close-up of its own: it flies up from under the
- * screen, growing until its glass covers the station's element exactly (the
- * element is as wide as the glass), squares up to the camera and holds
- * there; it powers the screen down before it shrinks away again.
+ * A `screen` station is a close-up of its own: it flies over from its perch,
+ * growing until its glass covers the station's element exactly (the element
+ * is as wide as the glass), squares up to the camera and holds there; it
+ * powers the screen down before it shrinks back to its perch.
  *
  * Must be created inside a gsap.matchMedia callback so its triggers are
  * reverted when the breakpoint changes.
@@ -111,8 +117,8 @@ function closeup(width: number, height: number) {
  * follow the scroll's, no faster than a flight takes (`ENTER_SECONDS`,
  * `LEAVE_SECONDS`), so a flick of the wheel does not make it flash by. The
  * station on stage keeps it until it is off, then the next one takes it.
- * The opening hero is the intro's and its way out is the transit's, so it
- * follows the scroll as it is.
+ * The opening hero is the intro's, and it leaves as the first transit comes
+ * up to take it, so it follows the scroll as it is.
  */
 const ENTER_SECONDS = 1.25;
 const LEAVE_SECONDS = 0.95;
@@ -128,6 +134,13 @@ type ResolvedStation = {
 };
 
 const onStage = ({ pace }: ResolvedStation) => pace.enter > 0 && pace.leave < 1;
+
+type Shown = Placement & { visible: true };
+
+/** A hop between two spots: the arc's height for the distance. */
+const arc = (ax: number, ay: number, bx: number, by: number) => 40 + Math.hypot(bx - ax, by - ay) * 0.12;
+/** Voxel sizes are mixed by ratio, so growing and shrinking read evenly. */
+const mixScale = (a: number, b: number, t: number) => Math.exp(mix(Math.log(a), Math.log(b), t));
 
 /* A station whose element has scrolled out of the screen is not seen leaving. */
 function inView(el: HTMLElement, height: number) {
@@ -156,7 +169,7 @@ export function createDirector(route: RouteDef) {
         enter: def.enter ? measure(enterOn, def.enter) : null,
         leave: def.leave ? measure(leaveOn, def.leave) : null,
         pace: { enter: 0, leave: 0 },
-        paced: Boolean(def.enter) && def.exit !== "down",
+        paced: Boolean(def.enter),
       },
     ];
   });
@@ -168,11 +181,52 @@ export function createDirector(route: RouteDef) {
     return [{ def, range: measure(trigger, [def.start, def.end]), along }];
   });
 
+  const perches = route.perch.flatMap((def) => {
+    const el = document.querySelector<HTMLElement>(def.select);
+    return el ? [{ def, el }] : [];
+  });
+  const header = document.querySelector<HTMLElement>("[data-site-header]");
+
   let seeded = false;
   let holder = -1;
 
-  function placeOpening(station: ResolvedStation, intro: Intro, width: number, height: number): Placement {
-    const spot = placeStation(station, 1, 0, width, height);
+  /** A spot kept on screen: under the header, clear of the other edges. A
+      station's element that has scrolled away holds it at the edge rather
+      than taking it along. */
+  function onScreen(x: number, y: number, k: number, width: number, height: number) {
+    const top = (header?.getBoundingClientRect().bottom ?? 0) + (ROBOT_TALL + 2) * k;
+    return { x: clamp(x, 10 * k, width - 10 * k), y: clamp(y, top, Math.max(top, height - 3 * k)) };
+  }
+
+  /** Its seat between stations: on the perch laid out now, kept on screen
+      (it rides in with the panel and stays when the panel has scrolled away). */
+  function placePerch(width: number, height: number): Shown {
+    const perch = perches.find(({ el }) => el.offsetWidth > 0);
+    const def: PerchDef = perch?.def ?? { select: "", ax: 0.9, pose: "hover", scale: 4 };
+    const k = def.scale;
+    let x = width * def.ax;
+    let y = height;
+    if (perch) {
+      const box = perch.el.getBoundingClientRect();
+      x = box.left + def.ax * box.width;
+      y = def.pose === "sit" ? box.top : box.bottom + (ROBOT_TALL + 2) * k;
+    }
+    return {
+      visible: true,
+      key: "perch",
+      ...onScreen(x, y, k, width, height),
+      scale: k,
+      pose: def.pose,
+      fly: def.pose === "hover" ? 0.15 : 0,
+      settled: true,
+      wave: false,
+      occluders: null,
+      aim: def.aim ?? null,
+    };
+  }
+
+  function placeOpening(station: ResolvedStation, intro: Intro, width: number, height: number, perch: Shown): Placement {
+    const spot = placeStation(station, 1, 0, width, height, perch);
     if (!spot.visible) return spot;
     const { p, zoom } = intro;
     const ko = openingScale(width, height);
@@ -206,33 +260,38 @@ export function createDirector(route: RouteDef) {
     };
   }
 
-  /** A close-up whose glass covers the element: up from under the screen,
-      growing as it comes; away up to the left, shrinking back. */
-  function placeScreen(station: ResolvedStation, enter: number, leave: number, width: number, height: number): Placement {
+  /** A close-up whose glass covers the element: over from its perch, growing
+      as it comes; back to its perch, shrinking. */
+  function placeScreen(station: ResolvedStation, enter: number, leave: number, width: number, height: number, perch: Shown): Placement {
     const { def, el } = station;
     const box = el.getBoundingClientRect();
     const near = Math.max(1, el.offsetWidth / GLASS_WIDE);
-    const far = def.scale;
     const cx = box.left + box.width / 2;
     const cy = box.top + box.height / 2;
+    const px = perch.x;
+    const py = perch.y - HEAD_CENTER_Y * perch.scale;
+    // Flights aim at the part of the slot on screen, so a slot scrolling
+    // away does not take it off screen.
+    const fx = clamp(cx, 0, width);
+    const fy = clamp(cy, 0, height);
     let hx = cx;
     let hy = cy;
     let k = near;
     let fly = 0;
     let lock = 1;
     if (leave > SCREEN_HOLD) {
-      const t = easeInCubic((leave - SCREEN_HOLD) / (1 - SCREEN_HOLD));
-      k = Math.exp(mix(Math.log(near), Math.log(far), Math.sqrt(t)));
-      hx = mix(cx, width * 0.2, t);
-      hy = mix(cy, -12 * far, t);
-      fly = Math.min(1, t * 3);
+      const t = easeInOut((leave - SCREEN_HOLD) / (1 - SCREEN_HOLD));
+      k = mixScale(near, perch.scale, Math.sqrt(t));
+      hx = mix(fx, px, t);
+      hy = mix(fy, py, t) - Math.sin(Math.PI * t) * arc(fx, fy, px, py);
+      fly = Math.min(1, Math.sin(Math.PI * t) * 1.6);
       lock = 1 - Math.min(1, t * 4);
     } else if (enter < 1) {
-      const t = easeOutCubic(enter);
-      k = Math.exp(mix(Math.log(far), Math.log(near), t * t));
-      hx = mix(width * 0.86, cx, t);
-      hy = mix(height + 4 * far, cy, t) - Math.sin(Math.PI * t) * height * 0.08;
-      fly = 1 - t;
+      const t = easeInOut(enter);
+      k = mixScale(perch.scale, near, t * t);
+      hx = mix(px, fx, t);
+      hy = mix(py, fy, t) - Math.sin(Math.PI * t) * arc(px, py, fx, fy);
+      fly = Math.min(1, Math.sin(Math.PI * t) * 1.6);
       lock = t * t;
     }
     const aligned = enter >= 1 && leave <= SCREEN_HOLD;
@@ -255,10 +314,10 @@ export function createDirector(route: RouteDef) {
     };
   }
 
-  function placeStation(station: ResolvedStation, enter: number, leave: number, width: number, height: number): Placement {
+  function placeStation(station: ResolvedStation, enter: number, leave: number, width: number, height: number, perch: Shown): Placement {
     const { def, el } = station;
-    if (def.screen) return placeScreen(station, enter, leave, width, height);
-    const k = def.scaleFromElement ? Math.max(1, el.offsetWidth) : def.scale;
+    if (def.screen) return placeScreen(station, enter, leave, width, height, perch);
+    const k = def.scaleFromElement ? Math.max(1, el.offsetWidth) : (def.scale ?? perch.scale);
     const box = el.getBoundingClientRect();
     const x = box.left + def.ax * box.width;
     // Peek hides the body below the edge so only the eye pods show.
@@ -271,45 +330,30 @@ export function createDirector(route: RouteDef) {
 
     let px = x;
     let py = y;
+    let scale = k;
     let fly = def.pose === "hover" ? 0.15 : 0;
 
-    if (leave > 0) {
-      const t = easeInCubic(leave);
-      if (def.pose === "peek") {
-        py = y + PEEK_HIDE * k * t; // ducks back behind the edge
-      } else if (def.exit === "down") {
-        // Hops up off its spot and drops out under the screen, onto the board
-        // the transit uncovers there.
-        px = mix(x, x + 120, t);
-        py = mix(y, height + 4 * k, t) - Math.sin(Math.PI * Math.min(1, leave * 1.6)) * 90;
-        fly = Math.max(fly, Math.min(1, leave * 3));
-      } else {
-        px = mix(x, x - 180, t);
-        py = mix(y, -18 * k, t);
-        fly = Math.max(fly, Math.min(1, leave * 3));
-      }
-    } else if (enter < 1) {
-      const t = easeOutCubic(enter);
-      if (def.pose === "peek") {
-        py = y + PEEK_HIDE * k * (1 - t); // rises from behind the edge
-      } else if (def.pose === "sit") {
-        px = mix(x + 260, x, t);
-        py = mix(Math.min(y - 360, -18 * k), y, t) - Math.sin(Math.PI * enter) * 40;
-        fly = Math.max(fly, 1 - t);
-      } else {
-        px = mix(width + 14 * k, x, t);
-        py = mix(y - 140, y, t);
-        fly = Math.max(fly, 1 - t);
-      }
+    // Between the perch and the spot: a hop, the size changing on the way.
+    // A peek lands on the edge first and sinks behind it, and leaves the
+    // same way round.
+    const travel = enter < 1 ? enter : leave > 0 ? 1 - leave : 1;
+    if (travel < 1) {
+      const sink = def.pose === "peek" ? 0.3 : 0;
+      const t = easeInOut(clamp(travel / (1 - sink), 0, 1));
+      const landY = def.pose === "peek" ? box.top : y;
+      px = mix(perch.x, x, t);
+      py = mix(perch.y, landY, t) - Math.sin(Math.PI * t) * arc(perch.x, perch.y, x, landY);
+      if (sink && travel > 1 - sink) py = mix(landY, y, easeInOut((travel - (1 - sink)) / sink));
+      scale = mixScale(perch.scale, k, t);
+      fly = Math.max(fly, Math.min(1, Math.sin(Math.PI * t) * 1.6));
     }
 
     const settled = enter >= 1 && leave <= 0;
     return {
       visible: true,
       key: def.id,
-      x: px,
-      y: py,
-      scale: k,
+      ...onScreen(px, py, scale, width, height),
+      scale,
       pose: def.pose,
       fly,
       tilt: def.tilt,
@@ -321,34 +365,21 @@ export function createDirector(route: RouteDef) {
     };
   }
 
-  /** Drops onto the start of the bar, rides its filling edge, flies off the end. */
-  function placeCameo(cameo: ResolvedCameo, p: number): Placement {
+  /** Waits at the start of the bar, rides its filling edge, waits at the
+      end; the mascot flies it on and off (its hop takes time, not scroll,
+      so a short seam is not a dash). */
+  function placeCameo(cameo: ResolvedCameo, p: number, width: number, height: number): Placement {
     const { def } = cameo;
     const k = def.scale;
     const bar = cameo.along.getBoundingClientRect();
     const [a, b] = def.span;
-    let x = mix(bar.left, bar.right, clamp((p - a) / (b - a), 0, 1));
-    let y = bar.top - k;
-    let fly = 0.45;
-    if (p < a) {
-      const t = easeOutCubic(p / a);
-      x = mix(bar.left - 24 * k, bar.left, t);
-      y = mix(bar.top - 36 * k, y, t);
-      fly = 1 - t * 0.55;
-    } else if (p > b) {
-      const t = easeInCubic((p - b) / (1 - b));
-      x = mix(bar.right, bar.right + 24 * k, t);
-      y = mix(y, bar.top - 48 * k, t);
-      fly = mix(0.45, 1, t);
-    }
     return {
       visible: true,
       key: def.id,
-      x,
-      y,
+      ...onScreen(mix(bar.left, bar.right, clamp((p - a) / (b - a), 0, 1)), bar.top - k, k, width, height),
       scale: k,
       pose: "hover",
-      fly,
+      fly: 0.45,
       settled: false,
       wave: false,
       occluders: null,
@@ -368,20 +399,22 @@ export function createDirector(route: RouteDef) {
     dropElement: drop?.el ?? null,
     /** Where the parcel stands on its station, live, whether or not the
         mascot is there. */
-    parcelSpot(): Spot | null {
+    parcelSpot(width: number, height: number): Spot | null {
       const parcel = drop?.def.parcel;
       if (!drop || !parcel) return null;
       const { def, el } = drop;
       const box = el.getBoundingClientRect();
+      const scale = def.scale ?? placePerch(width, height).scale;
       return {
-        x: box.left + def.ax * box.width + parcel.dx * def.scale,
+        x: box.left + def.ax * box.width + parcel.dx * scale,
         y: box.top,
-        scale: def.scale,
+        scale,
         done: el.querySelector(parcel.done),
       };
     },
     /** The intro stands in for the enter range of stations without one. `dt`
-        (seconds) paces the flights: see `Pace`. */
+        (seconds) paces the flights: see `Pace`. Hidden only until the intro
+        shows it. */
     evaluate(scroll: number, width: number, height: number, intro: Intro, dt = 0): Placement {
       const goals = stations.map((station) => {
         const enter = station.enter ? progress(scroll, station.enter) : intro.shown ? intro.p : 0;
@@ -442,13 +475,14 @@ export function createDirector(route: RouteDef) {
         }
       });
 
+      const perch = placePerch(width, height);
       if (holder >= 0) {
         const station = stations[holder];
-        if (goals[holder].opening && holder === wanted) return placeOpening(station, intro, width, height);
-        if (onStage(station)) return placeStation(station, station.pace.enter, station.pace.leave, width, height);
+        if (goals[holder].opening && holder === wanted) return placeOpening(station, intro, width, height, perch);
+        if (onStage(station)) return placeStation(station, station.pace.enter, station.pace.leave, width, height, perch);
       }
-      if (cameo) return placeCameo(cameo, progress(scroll, cameo.range));
-      return { visible: false };
+      if (cameo) return placeCameo(cameo, progress(scroll, cameo.range), width, height);
+      return intro.shown ? perch : { visible: false };
     },
   };
 }

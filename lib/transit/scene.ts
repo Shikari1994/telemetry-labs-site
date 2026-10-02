@@ -299,18 +299,18 @@ function flightCamera(p: number): Pose {
 const ROBOT = 0.09;
 
 /**
- * The mascot on the flight. It comes past the camera from behind, low on the
- * right, settles a few units ahead and leads along the bus, weaving across
- * it; halfway it turns round, flying backwards, and waves the camera on;
- * then it turns back and shoots ahead through the gate before the camera,
- * gone once it is through.
+ * The mascot on the flight. It jumps in off the page just ahead of the
+ * camera, low on the right, draws ahead a few units and leads along the bus,
+ * weaving across it; halfway it turns round, flying backwards, and waves the
+ * camera on; then it turns back and shoots ahead through the gate before the
+ * camera, and flies back to the page from there.
  */
 function flightGuide(p: number, cam: Pose): Guide | null {
   const pass = span(p, 0.05, 0.3);
   const weave = span(p, 0.3, 0.56);
   const back = span(p, 0.56, 0.62) - span(p, 0.68, 0.74);
   const dash = span(p, 0.74, 0.9);
-  const d = mix(-1, 8, pass) + dash * dash * 46;
+  const d = mix(4.5, 8, pass) + dash * dash * 46;
   const sx = mix(2.4, 1.2, pass) * Math.cos(Math.PI * weave) * (1 - span(p, 0.56, 0.74));
   const sy = mix(mix(-1.8, -1, pass), -0.4, dash);
   const guide = chase(cam, d, sx, sy, Math.PI * (1 - back), true);
