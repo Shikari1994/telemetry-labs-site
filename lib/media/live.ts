@@ -17,41 +17,50 @@ const B4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v 
 const LEVELS = 15;
 const SATURATION = 0.88;
 const DIM = 0.88;
-const CREAM = [250 / 250, 249 / 250, 245 / 250];
+const [CREAM_R, CREAM_G, CREAM_B] = [250 / 250, 249 / 250, 245 / 250];
 
 /** Seconds: a dissolve, and how long each still of a reel holds. */
 const DISSOLVE = 0.45;
 const HOLD = 1.5;
 
+/* Both run over every pixel of a capture (800 × 500) on the main thread, a
+   video frame at a time: rows and columns are walked rather than divided out
+   of the index, and the arithmetic is kept as it was so the output is the
+   same to the byte. */
 function grain(src: Uint8ClampedArray, dst: Uint8ClampedArray, width: number) {
-  for (let i = 0, p = 0; i < src.length; i += 4, p += 1) {
-    const x = p % width;
-    const y = (p - x) / width;
-    const th = B4[((y & 3) << 2) | (x & 3)];
-    const r = src[i] / 255;
-    const g = src[i + 1] / 255;
-    const b = src[i + 2] / 255;
-    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    for (let c = 0; c < 3; c += 1) {
-      const v = (lum + ((c === 0 ? r : c === 1 ? g : b) - lum) * SATURATION) * DIM * CREAM[c];
-      dst[i + c] = (Math.floor(Math.min(1, Math.max(0, v)) * LEVELS + th) / LEVELS) * 255;
+  const height = src.length / 4 / width;
+  for (let y = 0, i = 0; y < height; y += 1) {
+    const row = (y & 3) << 2;
+    for (let x = 0; x < width; x += 1, i += 4) {
+      const th = B4[row | (x & 3)];
+      const r = src[i] / 255;
+      const g = src[i + 1] / 255;
+      const b = src[i + 2] / 255;
+      const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      const vr = (lum + (r - lum) * SATURATION) * DIM * CREAM_R;
+      const vg = (lum + (g - lum) * SATURATION) * DIM * CREAM_G;
+      const vb = (lum + (b - lum) * SATURATION) * DIM * CREAM_B;
+      dst[i] = (Math.floor(Math.min(1, Math.max(0, vr)) * LEVELS + th) / LEVELS) * 255;
+      dst[i + 1] = (Math.floor(Math.min(1, Math.max(0, vg)) * LEVELS + th) / LEVELS) * 255;
+      dst[i + 2] = (Math.floor(Math.min(1, Math.max(0, vb)) * LEVELS + th) / LEVELS) * 255;
+      dst[i + 3] = 255;
     }
-    dst[i + 3] = 255;
   }
 }
 
-/** Shows `b` over `a` where the ordered threshold is under `t` (two-pixel cells). */
+const words = (px: Uint8ClampedArray) => new Uint32Array(px.buffer, px.byteOffset, px.length >> 2);
+
+/** Shows `b` over `a` where the ordered threshold is under `t` (two-pixel cells).
+    Grained buffers are opaque, so a pixel moves as one 32-bit word. */
 function dissolve(a: Uint8ClampedArray, b: Uint8ClampedArray, dst: Uint8ClampedArray, width: number, t: number) {
   if (t >= 1) return dst.set(b);
   if (t <= 0) return dst.set(a);
-  for (let i = 0, p = 0; i < dst.length; i += 4, p += 1) {
-    const x = p % width;
-    const y = (p - x) / width;
-    const from = B4[(((y >> 1) & 3) << 2) | ((x >> 1) & 3)] < t ? b : a;
-    dst[i] = from[i];
-    dst[i + 1] = from[i + 1];
-    dst[i + 2] = from[i + 2];
-    dst[i + 3] = 255;
+  const [a32, b32, d32] = [words(a), words(b), words(dst)];
+  const height = d32.length / width;
+  const pick = B4.map((threshold) => threshold < t);
+  for (let y = 0, p = 0; y < height; y += 1) {
+    const row = ((y >> 1) & 3) << 2;
+    for (let x = 0; x < width; x += 1, p += 1) d32[p] = pick[row | ((x >> 1) & 3)] ? b32[p] : a32[p];
   }
 }
 
@@ -116,6 +125,42 @@ export function createLiveFeed(
   let video: HTMLVideoElement | null = null;
   const current = new Uint8ClampedArray(size);
   let lastTime = -1;
+  let hasFrame = false;
+  /* A frame is cropped and scaled by createImageBitmap, off the main thread;
+     drawn straight from the <video> the browser reads it back and resamples
+     it on the main thread, several times the cost. Its pixels match to a
+     unit, which the grain all but erases. A grabbed frame shows on the next
+     tick. Without it (or should it fail) the frame is drawn directly. */
+  let bitmaps = typeof createImageBitmap === "function";
+  let grabbing = false;
+  let grabbed = false;
+  const showTime = (time: number) => setTag(`▶ ${pad(Math.floor(time / 60))}:${pad(Math.floor(time % 60))}`);
+  /** Takes the playing frame into `current`; true when it is there already. */
+  const grab = (from: HTMLVideoElement) => {
+    const time = from.currentTime;
+    const [cx, cy, cw, ch] = live.video!.crop;
+    lastTime = time;
+    if (!bitmaps) {
+      take(() => sctx.drawImage(from, cx, cy, cw, ch, 0, 0, width, height), current);
+      hasFrame = true;
+      showTime(time);
+      return true;
+    }
+    grabbing = true;
+    createImageBitmap(from, cx, cy, cw, ch, { resizeWidth: width, resizeHeight: height, resizeQuality: "low" })
+      .then((bitmap) => {
+        take(() => sctx.drawImage(bitmap, 0, 0), current);
+        bitmap.close();
+        hasFrame = grabbed = true;
+        showTime(time);
+      })
+      .catch(() => {
+        bitmaps = false;
+        lastTime = -1;
+      })
+      .finally(() => (grabbing = false));
+    return false;
+  };
   const ensureVideo = () => {
     if (video || !live.video) return video;
     video = document.createElement("video");
@@ -173,14 +218,12 @@ export function createLiveFeed(
     // `current` was written this frame (a new video frame, a cut dissolving).
     let fresh = false;
     if (video) {
-      if (video.readyState >= 2 && video.currentTime !== lastTime) {
-        lastTime = video.currentTime;
-        const [cx, cy, cw, ch] = live.video!.crop;
-        take(() => sctx.drawImage(video!, cx, cy, cw, ch, 0, 0, width, height), current);
+      if (grabbed) {
+        grabbed = false;
         fresh = true;
-        setTag(`▶ ${pad(Math.floor(lastTime / 60))}:${pad(Math.floor(lastTime % 60))}`);
       }
-      feed = lastTime >= 0 ? current : null;
+      if (!grabbing && video.readyState >= 2 && video.currentTime !== lastTime && grab(video)) fresh = true;
+      feed = hasFrame ? current : null;
     } else if (frames.length) {
       held += dt;
       if (on && cut >= 1 && held > HOLD) {
