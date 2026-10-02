@@ -2941,7 +2941,7 @@ html:not(.motion-enabled) .deckPort:not(.is-free) i {
    with motion, it becomes the board: a CSS 3D plane
    on a COLS x ROWS grid, chips as raised packages in sockets, traces in an
    SVG on the plane. MotionProvider tilts it in and seats the chips on one
-   scrub (--tilt, --rz, --zoom on the plane; --lift on each chip).
+   scrub (--tilt, --board-rz, --zoom on the plane; --lift on each chip).
    Pinned, the board sits in a screen slot shaped like the mascot's glass
    (11 x 8, and the head's bezel round it inside the dock). Once the mascot
    claims the slot (data-screen) its window chrome goes and the board shows
@@ -3040,6 +3040,35 @@ html:not(.motion-enabled) .deckPort:not(.is-free) i {
 }
 .boardLegend [data-work="both"] i {
   background: var(--c);
+}
+
+/* The board camera's values change every frame of its scrub. Registered as
+   not inherited, so setting them restyles the plane alone and not the
+   hundreds of chips, pins and labels under it (nothing below reads them). */
+@property --tilt {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 36deg;
+}
+@property --board-rz {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@property --zoom {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+@property --pan-x {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+@property --pan-y {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
 }
 
 /* Phones get the board too when it moves (motion on, script running): the
@@ -3161,7 +3190,7 @@ html:not(.motion-enabled) .deckPort:not(.is-free) i {
     --cell: calc(var(--w) / var(--cols));
     --t: calc(var(--cell) * 0.34);
     --tilt: 36deg;
-    --rz: 0deg;
+    --board-rz: 0deg;
     --zoom: 1;
     /* The camera's aim on phones, in cells from the board's centre. */
     --pan-x: 0;
@@ -3177,7 +3206,7 @@ html:not(.motion-enabled) .deckPort:not(.is-free) i {
       radial-gradient(circle, rgba(250, 249, 245, 0.13) 0.9px, transparent 1.3px) 0 0 / var(--cell) var(--cell),
       var(--bg-raised);
     transform-style: preserve-3d;
-    transform: translateY(calc(var(--cell) * -1.2)) rotateX(var(--tilt)) rotateZ(var(--rz)) scale(var(--zoom))
+    transform: translateY(calc(var(--cell) * -1.2)) rotateX(var(--tilt)) rotateZ(var(--board-rz)) scale(var(--zoom))
       translate(calc(var(--pan-x) * var(--cell)), calc(var(--pan-y) * var(--cell)));
   }
   /* The board's thickness, hanging under its front and right edges. */

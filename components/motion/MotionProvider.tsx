@@ -737,7 +737,7 @@ export function MotionProvider({ children }: { children: ReactNode }) {
           const k = gsap.utils.clamp(0, 1, p / BOARD_SEAT_TO);
           const e = k * k * (3 - 2 * k);
           plane?.style.setProperty("--tilt", `${(46 - 24 * e).toFixed(2)}deg`);
-          plane?.style.setProperty("--rz", `${(-12 + 12 * e).toFixed(2)}deg`);
+          plane?.style.setProperty("--board-rz", `${(-12 + 12 * e).toFixed(2)}deg`);
           let zoom = 0.86 + 0.14 * e;
           if (closeUp > 1) {
             // Close in over the first drop, follow the chip in the air, pull
@@ -794,7 +794,7 @@ export function MotionProvider({ children }: { children: ReactNode }) {
               drops[i] = -1;
             });
             paths.forEach((path) => path.classList.remove("is-on"));
-            ["--tilt", "--rz", "--zoom", "--pan-x", "--pan-y"].forEach((name) => plane?.style.removeProperty(name));
+            ["--tilt", "--board-rz", "--zoom", "--pan-x", "--pan-y"].forEach((name) => plane?.style.removeProperty(name));
           };
         });
       }
