@@ -8,6 +8,10 @@ import { getMediaAsset } from "@/lib/media/manifest";
 import { createShowcaseRenderer } from "@/lib/showcase/renderer";
 import { showcase } from "@/lib/showcase/state";
 
+// Next.js rewrites `basePath` only into next/image and next/link; a plain Image
+// needs it spelled out, or on Pages the posters 404 and the ring stays CSS.
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 const load = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
@@ -45,7 +49,7 @@ export function ShowcaseScene() {
       let visible = false;
       let dirty = true;
 
-      Promise.all(siteShowcase.map((item) => load(getMediaAsset(item.shot).poster)))
+      Promise.all(siteShowcase.map((item) => load(`${BASE_PATH}${getMediaAsset(item.shot).poster}`)))
         .then((images) => {
           if (!alive) return;
           renderer.setScreens(images);
