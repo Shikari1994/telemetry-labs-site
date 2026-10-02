@@ -1,6 +1,6 @@
 import { AnchorLink } from "@/components/layout/AnchorLink";
 import { PixelText } from "@/components/pixel/PixelText";
-import { HeroRoom } from "@/components/sections/HeroRoom";
+import { HeroIsland } from "@/components/sections/HeroIsland";
 import { heroReadings, works } from "@/data/home";
 
 export function Hero() {
@@ -23,8 +23,8 @@ export function Hero() {
             Портфолио / работы
           </p>
           <p className="heroLead" data-hero-line>
-            Сайты, 3D-визуализация и приложения для технологичных компаний — от корпоративного сайта до системы,
-            которая показывает бурение в реальном времени.
+            Сайты, 3D-визуализация и приложения для технологичных компаний — от корпоративного сайта до экосистемы
+            для мониторинга бурения, инженерных расчётов и учёта оборудования.
           </p>
 
           <dl className="heroMeta" data-hero-line>
@@ -59,10 +59,10 @@ export function Hero() {
         </div>
 
         <figure className="heroFigure" data-hero-object>
-          <HeroRoom />
+          <HeroIsland />
           <figcaption className="figCaption" data-hero-line>
             <span>FIG. 01</span>
-            <span>Галерея работ: плакат открывает кейс</span>
+            <span>Работы на одной плате: экран открывает кейс</span>
             <span className="heroCaptionLive">
               <i aria-hidden="true" /> 02 WORKS / ONLINE
             </span>

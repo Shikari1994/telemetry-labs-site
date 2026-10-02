@@ -13,11 +13,16 @@
  * or in focus, keeps an eye on the section's current item (the screen in
  * front, the layer that just lit) and points it out when it changes.
  *
+ * At a screen station it is the section's scene itself: a close-up whose
+ * glass covers the station's element, showing the page through it.
+ *
  * A cameo is a scrubbed pass between stations: it rides the load bar of a
  * seam as the bar fills, then flies on to the next section.
  *
  * Selectors reuse hooks the sections already expose for motion.
  */
+
+import { ISLAND_CAMERA } from "@/lib/hero/island";
 
 export type Pose = "hover" | "sit" | "peek";
 
@@ -64,6 +69,11 @@ export type StationDef = {
   occlude?: boolean;
   /** Wave once each time it settles here. */
   wave?: boolean;
+  /** A close-up whose glass covers the element (as wide as the glass):
+      the element shows through it once it has knocked its screen on
+      (lib/mascot/director.ts, `data-screen` on the element). `scale` is
+      its size on the way in and out; pose and anchor are ignored. */
+  screen?: boolean;
   aim?: AimDef;
   /** Where it sets the parcel down (lib/mascot/parcel.ts): on the element's
       top edge, `dx` voxels from its own anchor, until `done` shows up in
@@ -102,21 +112,22 @@ const seam = (index: number, scale: number): CameoDef => ({
 const desktop: RouteDef = {
   stations: [
     {
-      // Stands on the charging pad in the middle of the hero room, seen from
-      // the room camera's pitch. The intro flies it here from mid-screen.
-      // It points at the poster under the cursor.
+      // Stands on the socket of the hero island, seen from the island
+      // camera's pitch. The intro flies it here from mid-screen. It points
+      // at the work's screen under the cursor and points out each change of
+      // the current one.
       id: "hero",
-      select: "[data-room-spot]",
+      select: "[data-island-spot]",
       pose: "sit",
       ax: 0.5,
       scale: 9,
       scaleFromElement: true,
-      tilt: 0.38,
+      tilt: ISLAND_CAMERA.pitch,
       enter: null,
       opening: true,
       leave: ["top 34%", "top -6%"],
       exit: "down",
-      aim: { select: "[data-room-poster]" },
+      aim: { select: "[data-island-work]", active: "[data-island-work][data-current]" },
     },
     {
       // On top of the second cartridge; points at the cartridge or the
@@ -146,15 +157,16 @@ const desktop: RouteDef = {
       aim: { select: "[data-ring-card]", active: "[data-ring-card].is-front" },
     },
     {
-      // Peeks over the layer stack and watches the layers light up.
+      // Stands in the stage beside the layer stack, on the empty floor above
+      // its left corner, and points out each layer as it lights up.
       id: "monitor",
       select: "[data-monitor]",
-      pose: "peek",
-      ax: 0.86,
+      pose: "sit",
+      ax: 0.18,
+      ay: 0.3,
       scale: 6,
-      enter: ["top 92%", "top 62%"],
-      leave: ["top 30%", "top 10%"],
-      occlude: true,
+      enter: ["top 92%", "top 52%"],
+      leave: ["top 8%", "top -12%"],
       aim: { select: "[data-slab]", active: "[data-slab].is-on" },
     },
     {
@@ -172,17 +184,19 @@ const desktop: RouteDef = {
       aim: { select: "[data-viewer-item]", active: "[data-viewer-shot].is-front" },
     },
     {
-      // Stands on the floor of the orbit window, clear of the globe, and
-      // points at the tag under the cursor.
+      // The stack is shown on its own screen: it flies up close, its glass
+      // over the board's slot, knocks on its temple and the board boots
+      // there; it assembles on the pin's scrub behind the glass.
       id: "stack",
-      select: "[data-orbit]",
-      pose: "sit",
-      ax: 0.88,
-      ay: 1,
+      select: "[data-board-screen]",
+      pose: "hover",
+      ax: 0.5,
       scale: 6,
-      enter: ["bottom 110%", "bottom 75%"],
-      leave: ["bottom 30%", "bottom 5%"],
-      aim: { select: "[data-orbit-tag]" },
+      screen: true,
+      enter: ["top 95%", "top 20%"],
+      enterOn: "[data-board]",
+      leave: ["top bottom+=60", "top 45%"],
+      leaveOn: "#stack [data-offer]",
     },
     {
       // Sits on the form's corner under the section number, clear of the
@@ -217,16 +231,17 @@ const desktop: RouteDef = {
   cameos: [seam(0, 5), seam(1, 5)],
 };
 
-const [hero, programs, , monitor, , stack, request, footer] = desktop.stations;
+const [hero, programs, , monitor, , , request, footer] = desktop.stations;
 
-/* Phones: no pins, so the ring and the viewer scroll by as plain rows and
-   the mascot skips them. Above the form there is only room to peek. */
+/* Phones: no pins, so the ring, the viewer and the stack's screen scroll by
+   as plain rows and the mascot skips them (the board is a list by zone).
+   Above the form there is only room to peek. */
 const mobile: RouteDef = {
   stations: [
     hero,
     { ...programs, index: 0, ax: 0.72, scale: 4.5 },
-    { ...monitor, ax: 0.8, scale: 4.5 },
-    { ...stack, ax: 0.84, scale: 4.5 },
+    // The stack fills the stage here; it stands in the free corner under it.
+    { ...monitor, ax: 0.86, ay: 0.98, scale: 4.5, leave: ["top 0%", "top -20%"] },
     { ...request, pose: "peek", ax: 0.8, scale: 4.5, occlude: true, parcel: { dx: -13, done: ".terminalDone" } },
     { ...footer, scale: 4.5 },
   ],

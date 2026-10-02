@@ -292,34 +292,79 @@ export const screens = [
 }[];
 
 /**
- * The technology orbit: what the two works are built with. `work` colours a
- * tag by the work that uses it; "both" means both builds use it.
+ * 06, the stack as one circuit board: what the two works are built with,
+ * one chip per technology, grouped by where it works. Zones and their chips
+ * are listed in the order the board assembles (the data's way from the rig
+ * to the screens, then the shared 3D, then the site); `work` colours a zone
+ * by the work it belongs to. Each note is one line on what the chip does
+ * for the work. Where each chip sits is in lib/stack/board.ts.
  */
-export type OrbitWork = "site" | "monitor" | "both";
-export const orbitTags: readonly { label: string; work: OrbitWork }[] = [
-  { label: "THREE.JS", work: "both" },
-  { label: "ASTRO", work: "site" },
-  { label: "GSAP", work: "site" },
-  { label: "SCROLLTRIGGER", work: "site" },
-  { label: "LENIS", work: "site" },
-  { label: "GLSL", work: "site" },
-  { label: "WEBGL", work: "site" },
-  { label: "REACT 19", work: "monitor" },
-  { label: "TYPESCRIPT", work: "monitor" },
-  { label: "ELECTRON", work: "monitor" },
-  { label: "VITE", work: "monitor" },
-  { label: "EXPO", work: "monitor" },
-  { label: "REACT NATIVE", work: "monitor" },
-  { label: "FASTIFY", work: "monitor" },
-  { label: "POSTGRESQL", work: "monitor" },
-  { label: "WEBSOCKET", work: "monitor" },
-  { label: "ZUSTAND", work: "monitor" },
-  { label: "ECHARTS", work: "monitor" },
-  { label: "R3F", work: "monitor" },
-  { label: "DND-KIT", work: "monitor" },
-  { label: "WITSML", work: "monitor" },
-  { label: "NFC", work: "monitor" },
-  { label: "PYTHON", work: "monitor" },
+export type StackWork = "site" | "monitor" | "both";
+export type StackChip = { label: string; note: string };
+export const stackZones: readonly { id: string; label: string; work: StackWork; chips: readonly StackChip[] }[] = [
+  {
+    id: "rig",
+    label: "RIG",
+    work: "monitor",
+    chips: [
+      { label: "PYTHON", note: "Агент для буровой: читает данные станции и передаёт их на сервер." },
+      { label: "WITSML", note: "Отраслевой стандарт обмена данными бурения: система принимает данные и в нём." },
+    ],
+  },
+  {
+    id: "server",
+    label: "SERVER",
+    work: "monitor",
+    chips: [
+      { label: "FASTIFY", note: "Сервер: принимает данные с буровой и раздаёт их программам." },
+      { label: "POSTGRESQL", note: "База: скважины, рейсы, приборы и их наработка." },
+      { label: "WEBSOCKET", note: "Живой поток: свежие данные приходят в офис и в поле без обновления экрана." },
+    ],
+  },
+  {
+    id: "office",
+    label: "OFFICE / WINDOWS",
+    work: "monitor",
+    chips: [
+      { label: "ELECTRON", note: "Программа для Windows, собранная из того же кода, что и веб-версия." },
+      { label: "REACT 19", note: "Интерфейс программы: экраны, таблицы и формы." },
+      { label: "TYPESCRIPT", note: "Строгие типы: меньше ошибок в программе, с которой работают каждый день." },
+      { label: "VITE", note: "Быстрая сборка: новые версии программы выходят без задержек." },
+      { label: "ZUSTAND", note: "Общее состояние: на всех экранах программы одни и те же данные." },
+      { label: "ECHARTS", note: "Графики параметров бурения." },
+      { label: "DND-KIT", note: "Сборка КНБК перетаскиванием элементов мышью." },
+      { label: "R3F", note: "Траектория скважины в 3D прямо в программе." },
+    ],
+  },
+  {
+    id: "field",
+    label: "FIELD / ANDROID",
+    work: "monitor",
+    chips: [
+      { label: "EXPO", note: "Android-приложение для работы у скважины." },
+      { label: "REACT NATIVE", note: "Интерфейс телефона на том же подходе, что и программа для Windows." },
+      { label: "NFC", note: "Поднесите телефон к метке на приборе, и откроется его паспорт." },
+    ],
+  },
+  {
+    id: "shared",
+    label: "SHARED",
+    work: "both",
+    chips: [{ label: "THREE.JS", note: "3D в обеих работах: сцены на сайте и траектория скважины в программе." }],
+  },
+  {
+    id: "site",
+    label: "GEO-TN.COM",
+    work: "site",
+    chips: [
+      { label: "WEBGL", note: "3D-графика прямо в браузере, без плагинов." },
+      { label: "GLSL", note: "Собственные визуальные эффекты сайта." },
+      { label: "LENIS", note: "Плавная прокрутка страницы." },
+      { label: "SCROLLTRIGGER", note: "Сцены, которые меняются по мере прокрутки страницы." },
+      { label: "GSAP", note: "Анимация сайта, связанная с прокруткой." },
+      { label: "ASTRO", note: "Каркас сайта: страницы открываются быстро." },
+    ],
+  },
 ];
 
 export type TreeSub = { id: string; label: string };

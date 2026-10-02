@@ -17,6 +17,8 @@
  * language. Geometry is baked once into a single interleaved buffer.
  */
 
+import { buildHd, type HdPartId } from "@/lib/mascot/hd";
+
 const PALETTE = {
   b: "#e2733f", // shell
   d: "#b4532a", // shell bands
@@ -30,9 +32,13 @@ const PALETTE = {
   c: "#c3e88d", // charge cells and face pixels
   f: "#f6c98a", // thruster beam — glows
   x: "#fff3d6", // spark
+  h: "#f39a68", // shell highlight (close-up bevels)
+  o: "#6f8f4e", // face pixels, dim
+  n: "#33452a", // face pixel halo on the glass
+  e: "#effcd6", // face pixels, hot
 } as const;
 
-type ColorKey = keyof typeof PALETTE;
+export type ColorKey = keyof typeof PALETTE;
 type Vec3 = [number, number, number];
 
 /* Face pixel art. Eyes are three rows (top first) of three columns running
@@ -92,7 +98,7 @@ type RigidPart =
   | "spark"
   | "zee"
   | "parcel";
-export type PartId = RigidPart | `eyes-${Eyes}` | `mouth-${Mouth}` | "face-hi";
+export type PartId = RigidPart | `eyes-${Eyes}` | `mouth-${Mouth}` | "face-hi" | HdPartId;
 
 /** Where each part's pivot sits, in its parent's space (see rig order). */
 export const PIVOTS: Record<"base" | "neck" | "head" | "antenna" | "armL" | "armR" | "jet", Vec3> = {
@@ -142,9 +148,9 @@ export const FLOATS_PER_VERTEX = 10;
  * u_charge), 7 always full bright, 8 screen glass (lit by u_screen).
  */
 const KIND: Partial<Record<ColorKey, number>> = { a: 1, f: 7, x: 7 };
-const CELL = 3;
-const BRIGHT = 7;
-const SCREEN = 8;
+export const CELL = 3;
+export const BRIGHT = 7;
+export const SCREEN = 8;
 
 export type PartRange = { first: number; count: number };
 
@@ -409,13 +415,13 @@ function pushBox(
   max: number[],
   color: ColorKey,
   kind = KIND[color] ?? 0,
-  skip?: (n: number[]) => boolean,
+  skip?: (n: number[], face: number) => boolean,
 ) {
   const [r, g, b] = rgb(PALETTE[color]);
   const center = [0, 1, 2].map((i) => (min[i] + max[i]) / 2);
   const half = [0, 1, 2].map((i) => (max[i] - min[i]) / 2);
-  for (const face of FACES) {
-    if (skip?.(face.n)) continue;
+  for (const [index, face] of FACES.entries()) {
+    if (skip?.(face.n, index)) continue;
     const pts = face.corners.map((c) => [0, 1, 2].map((i) => center[i] + c[i] * half[i]));
     for (const index of [0, 1, 2, 0, 2, 3]) {
       out.push(...pts[index], ...face.n, r, g, b, kind);
@@ -519,6 +525,14 @@ export function buildMascotMesh(): { data: Float32Array; parts: Record<PartId, P
   for (const [name, rows] of Object.entries(EYES)) add(`eyes-${name as Eyes}`, () => pushPixels(out, eyePixels(rows)));
   for (const [name, rows] of Object.entries(MOUTHS)) {
     add(`mouth-${name as Mouth}`, () => pushPixels(out, mouthPixels(rows)));
+  }
+  // The close-up model (hd.ts).
+  for (const [id, boxes] of buildHd()) {
+    add(id, () => {
+      for (const { min, max, c, kind, hide } of boxes) {
+        pushBox(out, min, max, c, kind ?? KIND[c] ?? 0, (_, face) => (hide & (1 << face)) !== 0);
+      }
+    });
   }
 
   return { data: new Float32Array(out), parts };

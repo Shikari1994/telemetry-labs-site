@@ -27,6 +27,7 @@ import {
   viewportOrtho,
   type M4,
 } from "@/lib/mascot/math";
+import { GLYPH_COL, GREETING_LENGTH } from "@/lib/mascot/hd";
 import type { DrawState, PartDraw } from "@/lib/mascot/renderer";
 import type { Pose } from "@/lib/mascot/route";
 
@@ -45,6 +46,16 @@ import type { Pose } from "@/lib/mascot/route";
  * scripted beat can hold a face instead (or write "HI" across the screen).
  * Every change of face plays a quick CRT squash; the face glances across the
  * screen toward whatever the head is turned to.
+ *
+ * Up close (the page's opening shot) it is drawn from the close-up model
+ * (hd.ts) under a soft perspective: the same rig and joints, the parts
+ * swapped for finer ones, and the greeting typed out on the screen.
+ *
+ * Locked (the 06 stack, where its screen shows the board), it faces the
+ * camera square on, holds still and folds its antenna back, so the glass
+ * stays where the page laid the board out and nothing rises into the text
+ * above; a knock on its temple is the one beat it plays there, and with
+ * `hole` the face is not drawn and the glass is cut out.
  *
  * The hands follow the same moods: loosely curled at rest, fists in flight,
  * limp while it dozes, spread wide after a boop, open and wiggling in a
@@ -103,10 +114,21 @@ export type RigInput = {
   carry?: Side | 0;
   /** Told to sleep (the page powering off), whoever is around. */
   doze?: boolean;
+  /** Draw the close-up model (hd.ts) instead of the voxel robot. */
+  hd?: boolean;
+  /** Perspective strength, 0 flat (the page's usual view) … 1 the close-up's. */
+  perspective?: number;
+  /** Glyphs of the greeting typed so far, while the close-up says hi. */
+  typed?: number;
   /** The body's turn as a 3D scene sees it (the transits, lib/transit/guide),
       composed as rotateZ(roll) · rotateX(tilt) · rotateY(yaw); the rig's own
       sway and glances ride on top. Omitted = the page's usual view. */
   frame?: { yaw: number; tilt: number; roll: number } | null;
+  /** 0 free … 1 square on to the camera, no bob, no glances: the glass held
+      over the element its screen shows (route `screen`). */
+  lock?: number;
+  /** The glass is a window onto the page: no face, the glass cut out. */
+  hole?: boolean;
 };
 
 export type Point3 = { x: number; y: number; z: number };
@@ -121,11 +143,11 @@ export type Hold = {
   scale: number;
   /** Projection depth used for the frame. */
   depth: number;
-  /** The hand it wants free: pointing, or the right one while it waves. */
+  /** The hand it wants free: pointing, or the right one while it waves or knocks. */
   reach: Side | 0;
 };
 
-const MOODS = {
+export const MOODS = {
   neutral: { eyes: "open", mouth: "soft" },
   glad: { eyes: "open", mouth: "smile" },
   happy: { eyes: "happy", mouth: "grin" },
@@ -134,6 +156,7 @@ const MOODS = {
   dizzy: { eyes: "dizzy", mouth: "wobble" },
   whee: { eyes: "squeeze", mouth: "grin" },
   sleepy: { eyes: "sleepy", mouth: "dot" },
+  bonk: { eyes: "squeeze", mouth: "wobble" },
 } satisfies Record<string, { eyes: Eyes; mouth: Mouth }>;
 
 export type Mood = keyof typeof MOODS;
@@ -153,17 +176,47 @@ function step(s: Spring, target: number, k: number, c: number, dt: number) {
 /* Camera looks slightly down on the character so the top reads as 3D. */
 const TILT = 0.22;
 const WAVE_SECONDS = 1.6;
+/** The arm it waves with: its own right, on the viewer's left. */
+const WAVE_SIDE: Side = -1;
 const SPIN_SECONDS = 0.8;
 /** Cheerful after a boop, startled after waking. */
 const CHEER_SECONDS = 1.1;
 const STARTLE_SECONDS = 0.7;
 /** Dozes off after this long with nothing happening. */
 const SLEEP_AFTER = 14;
+/** How far back (radians) the antenna folds while locked. */
+const ANTENNA_FOLD = 1.45;
+/** The knock on its temple: how long, when the knuckles land, and the arm
+    it knocks with (the waving one, on the viewer's left). */
+const KNOCK_SECONDS = 1.35;
+export const KNOCK_HITS = [0.44, 0.66] as const;
+const KNOCK_SIDE: Side = WAVE_SIDE;
 /** CRT squash when the face changes. */
 const SWAP_SECONDS = 0.09;
 /** Pointer distances from the head centre, in voxels. */
 const NEAR_HEAD = 8;
 const NEARBY = 45;
+
+/* Close-up parts in the voxel robot's part spaces: the forearm is modelled
+   upward and twice as long in hand units, the hand and fingers upward; the
+   right hand has its thumb on +x, as the voxel one does. */
+const FORE_FIT = scale(0.92, -0.5, 0.92);
+const DIGIT_FIT = scale(1, -1, 1);
+const HAND_FIT: Record<-1 | 1, M4> = { [-1]: scale(-1, -1, 1), [1]: scale(1, -1, 1) };
+/** Close-up shading: the light falls off down each part over its height. */
+const SHADE = {
+  head: { y: 5, span: 5 },
+  neck: { y: -0.5, span: 2 },
+  antenna: { y: 2, span: 2 },
+  body: { y: 7.5, span: 3.5 },
+  ring: { y: 1, span: 1 },
+  arm: { y: -1, span: 2 },
+  fore: { y: 4.5, span: 3.5 },
+  palm: { y: 1.4, span: 1.2 },
+  digit: { y: 0.8, span: 0.8 },
+} satisfies Record<string, NonNullable<PartDraw["shade"]>>;
+/** One close-up face pixel, in voxels. */
+const HD_PIXEL = 0.25;
 
 /** Hands are drawn larger than the arm that carries them, so grips read. */
 const HAND_SCALE = 1.3;
@@ -265,14 +318,19 @@ export function createRig() {
   let nextBlink = 1.5;
   let blinkLeft = 0;
   let waveLeft = 0;
+  let waveFor = WAVE_SECONDS;
   let spinLeft = 0;
   let cheerLeft = 0;
   let startleLeft = 0;
+  /** Seconds into the knock; past KNOCK_SECONDS = none. */
+  let knockT = KNOCK_SECONDS;
   let glowBoost = 0;
   let headX = 0;
   let headY = 0;
   let asleep = false;
   let face = "";
+  let wasHd = false;
+  let wasHole = false;
   let swapT = SWAP_SECONDS;
   let nextZee = 0;
   /** Seconds into each hand's finger run-through; past FLEX_SECONDS = idle. */
@@ -292,9 +350,15 @@ export function createRig() {
       squash.v -= 3.2;
       swing.v += 5;
     },
-    wave() {
-      waveLeft = WAVE_SECONDS;
+    wave(seconds = WAVE_SECONDS) {
+      waveLeft = seconds;
+      waveFor = seconds;
       swing.v += 6;
+    },
+    /** Raises a fist beside its head and knocks on its temple twice. */
+    knock() {
+      knockT = 0;
+      blinkLeft = 0;
     },
     /** Runs one hand's fingers through. */
     flex(side: Side) {
@@ -385,8 +449,9 @@ export function createRig() {
 
       /* Sleep: nods off at a resting spot, wakes with a start. Told to doze,
          it sleeps on through its own power going off. */
+      const lock = clamp(input.lock ?? 0, 0, 1);
       const dozing = Boolean(input.doze) && fly < 0.1;
-      const canSleep = dozing || (!booting && !input.face && fly < 0.1 && input.pose !== "peek");
+      const canSleep = dozing || (!booting && !input.face && fly < 0.1 && input.pose !== "peek" && lock < 0.5);
       const wantsSleep = dozing || input.idle >= SLEEP_AFTER;
       if (asleep && (!wantsSleep || !canSleep)) {
         asleep = false;
@@ -416,9 +481,13 @@ export function createRig() {
         lookYaw = clamp(Math.atan2(input.look.x - headX, 240 * reach), -1.15, 1.15);
         lookPitch = clamp(Math.atan2(input.look.y - headY, 300 * reach), -0.45, 0.55);
       } else {
-        lookYaw = Math.sin(time * 0.45) * 0.55 + Math.sin(time * 1.7) * 0.08;
-        lookPitch = Math.sin(time * 0.6) * 0.1 + 0.08;
+        // Idle glances shrink up close, so the face stays on camera.
+        const calm = 1 / Math.max(1, reach * 0.5);
+        lookYaw = (Math.sin(time * 0.45) * 0.55 + Math.sin(time * 1.7) * 0.08) * calm;
+        lookPitch = (Math.sin(time * 0.6) * 0.1 + 0.08) * calm;
       }
+      lookYaw = mix(lookYaw, 0, lock);
+      lookPitch = mix(lookPitch, 0, lock);
       // In a scene the body already faces its way; screen travel only banks it.
       const frame = input.frame ?? null;
       const flyYaw = frame ? 0 : clamp(velX / 450, -1, 1) * 1.1;
@@ -458,12 +527,43 @@ export function createRig() {
       startleLeft = Math.max(0, startleLeft - dt);
       glowBoost = Math.max(0, glowBoost - dt * 1.4);
 
+      /* The knock: each landing jolts the head and whips the antenna; the
+         second throws sparks off the temple. */
+      const knockWas = knockT;
+      knockT = Math.min(KNOCK_SECONDS, knockT + dt);
+      KNOCK_HITS.forEach((hit, i) => {
+        if (knockWas >= hit || knockT < hit) return;
+        headYaw.v += 1.2;
+        swing.v += 7;
+        if (i === KNOCK_HITS.length - 1) {
+          const temple = [KNOCK_SIDE * 6.6, HEAD_CENTER_Y, 2.8] as const;
+          for (let n = 0; n < 9; n += 1) {
+            const a = Math.random() * Math.PI * 2;
+            const max = 0.25 + Math.random() * 0.25;
+            sparks.push({
+              x: temple[0],
+              y: temple[1],
+              z: temple[2],
+              vx: KNOCK_SIDE * (4 + Math.random() * 8),
+              vy: Math.sin(a) * 9 + 4,
+              vz: Math.cos(a) * 5,
+              life: max,
+              max,
+            });
+          }
+        }
+      });
+      const knocking = knockT < KNOCK_SECONDS;
+      // Up in 0.3 s, held through both knocks, down over the rest.
+      const knockEnv = knocking ? clamp(Math.min(knockT / 0.3, (KNOCK_SECONDS - knockT) / 0.4), 0, 1) : 0;
+      const knockPulse = Math.max(0, ...KNOCK_HITS.map((hit) => 1 - Math.abs(knockT - hit) / 0.08));
+
       const spinP = spinLeft > 0 ? 1 - spinLeft / SPIN_SECONDS : 0;
       const spin = spinP > 0 ? (spinP < 0.5 ? 4 * spinP ** 3 : 1 - (-2 * spinP + 2) ** 3 / 2) * Math.PI * 2 : 0;
 
       /* Placement: it always floats, bobbing more in open air; the ground
          point snaps to the render grid. */
-      const bob = Math.sin(time * 2.3) * k * (0.35 + hover * 0.35 + fly * 0.3) * (asleep ? 0.5 : 1);
+      const bob = Math.sin(time * 2.3) * k * (0.35 + hover * 0.35 + fly * 0.3) * (asleep ? 0.5 : 1) * (1 - lock);
       const px = input.pixel;
       const sx = Math.round(input.x / px) * px;
       const sy = Math.round((input.y + bob + hop.x) / px) * px;
@@ -476,7 +576,10 @@ export function createRig() {
       // Depth grows with size so a close-up is never clipped front or back.
       const depth = Math.max(800, k * 40);
       const toScreen = chain(translate(sx, sy, 0), scale(k * (1 - sq * 0.6), -k * (1 + sq), k), charRot);
-      const world = chain(viewportOrtho(input.width, input.height, depth), toScreen);
+      const projection = viewportOrtho(input.width, input.height, depth);
+      // A soft perspective about the screen centre: w = 1 - z / focal.
+      projection[11] = -(input.perspective ?? 0) / (Math.max(input.width, input.height) * 1.7);
+      const world = chain(projection, toScreen);
 
       const headLocalYaw = clamp(headYaw.x - bodyYaw.x, -1.05, 1.05);
       const headRot = chain(rotateY(headLocalYaw), rotateX(headPitch.x));
@@ -487,10 +590,12 @@ export function createRig() {
       /* The ring keeps turning, faster in flight. */
       ring += dt * (1.4 + fly * 7 + hover * 1.5);
 
-      const antennaM = chain(at("antenna"), rotateZ(clamp(swing.x, -0.9, 0.9)));
+      // Locked, it folds the antenna back onto its roof, clear of the page above.
+      const fold = rotateX(-lock * ANTENNA_FOLD);
+      const antennaM = chain(at("antenna"), fold, rotateZ(clamp(swing.x, -0.9, 0.9)));
 
       const armBase = 0.24 + fly * 0.55 + hover * 0.12 + Math.sin(time * 2.1) * 0.05 - (asleep ? 0.1 : 0);
-      const waveEnv = waveLeft > 0 ? Math.min(1, waveLeft * 4, (WAVE_SECONDS - waveLeft) * 5) : 0;
+      const waveEnv = waveLeft > 0 ? Math.min(1, waveLeft * 4, (waveFor - waveLeft) * 5) : 0;
 
       /* Hands: a pose per mood, blended by the same envelopes as the rest. */
       step(spreadAmt, spinLeft > 0 || cheerLeft > 0 ? 1 : 0, 120, 14, dt);
@@ -514,7 +619,7 @@ export function createRig() {
 
       const armPose = (side: Side): ArmPose => {
         const hold = clamp(carryAmt[side].x, 0, 1);
-        const wave = side > 0 ? waveEnv * (1 - hold) : 0;
+        const wave = side === WAVE_SIDE ? waveEnv * (1 - hold) : 0;
         const aim = clamp(pointAmt[side].x, 0, 1) * (1 - wave);
         flexT[side] = Math.min(FLEX_SECONDS, flexT[side] + dt);
         const curl = [0, 1, 2].map((i) => {
@@ -533,7 +638,7 @@ export function createRig() {
         }) as ArmPose["curl"];
         // Holding: forearm out front and the palm turned up (elbow and wrist
         // add up to a right angle), close in to the body.
-        return {
+        const pose: ArmPose = {
           shoulder: mix(mix(mix(armBase, 2.6, wave), pointAim[side], aim), 0.16 + Math.sin(time * 2.1) * 0.03, hold),
           elbow: mix(mix(mix(mix(mix(0.85, 0.3, fly), 0.45, sleepy), 0.3, wave), 0.08, aim), 1.3, hold),
           sway: Math.sin(time * 15) * 0.45 * wave,
@@ -542,24 +647,65 @@ export function createRig() {
           curl,
           spread: mix(mix(mix(0.08, 0.3, Math.max(spread, wave)), 0.04, aim), 0.02, hold),
         };
+        if (side !== KNOCK_SIDE || knockEnv <= 0) return pose;
+        // Knocking: the arm up beside the head, a fist at the front edge of
+        // the bezel by the temple, the forearm swinging in onto it at each
+        // knock.
+        const e = knockEnv * knockEnv * (3 - 2 * knockEnv);
+        return {
+          shoulder: mix(pose.shoulder, 2.975, e),
+          elbow: mix(pose.elbow, 0.55, e),
+          sway: mix(pose.sway, mix(-0.32, 0, knockPulse), e),
+          twist: mix(pose.twist, 0.3, e),
+          wrist: mix(pose.wrist, -0.2, e),
+          curl: pose.curl.map((c) => mix(c, 1.2, e)) as ArmPose["curl"],
+          spread: mix(pose.spread, 0.02, e),
+        };
       };
 
       const jetSize = clamp(0.4 + fly * 0.6 + hover * 0.2, 0, 1) * (0.8 + Math.sin(time * 38) * 0.2);
 
       /* Every draw for the frame. */
-      type Draw = { id: PartId; m: M4; r: M4 };
+      type Draw = { id: PartId; m: M4; r: M4; shade?: PartDraw["shade"] };
       const unit = identity();
-      const draws: Draw[] = [
-        { id: "base", m: chain(at("base"), rotateY(ring)), r: rotateY(ring) },
-        { id: "body", m: unit, r: unit },
-        { id: "neck", m: at("neck"), r: unit },
-        { id: "head", m: onHead, r: headRot },
-        { id: "antenna", m: chain(onHead, antennaM), r: chain(headRot, rotateZ(swing.x)) },
-      ];
+      const hd = Boolean(input.hd);
+      const ringM = chain(at("base"), rotateY(ring));
+      const antennaR = chain(headRot, fold, rotateZ(swing.x));
+      const draws: Draw[] = hd
+        ? [
+            { id: "hd-ring", m: ringM, r: rotateY(ring), shade: SHADE.ring },
+            { id: "hd-body", m: unit, r: unit, shade: SHADE.body },
+            { id: "hd-neck", m: onHead, r: headRot, shade: SHADE.neck },
+            { id: "hd-head", m: onHead, r: headRot, shade: SHADE.head },
+            { id: "hd-antenna", m: chain(onHead, antennaM), r: antennaR, shade: SHADE.antenna },
+          ]
+        : [
+            { id: "base", m: ringM, r: rotateY(ring) },
+            { id: "body", m: unit, r: unit },
+            { id: "neck", m: at("neck"), r: unit },
+            { id: "head", m: onHead, r: headRot },
+            { id: "antenna", m: chain(onHead, antennaM), r: antennaR },
+          ];
+      /* The close-up's finer arm parts, fitted to the voxel arm's joints. */
+      const fitArm = (side: Side, id: PartId, m: M4): Draw => {
+        if (id === "foreL" || id === "foreR") {
+          const fitted = chain(m, FORE_FIT);
+          return { id: "hd-fore", m: fitted, r: fitted, shade: SHADE.fore };
+        }
+        if (id === "handL" || id === "handR") {
+          const fitted = chain(m, HAND_FIT[side]);
+          return { id: "hd-palm", m: fitted, r: fitted, shade: SHADE.palm };
+        }
+        if (id === "finger" || id === "fingertip") {
+          const fitted = chain(m, DIGIT_FIT);
+          return { id: id === "finger" ? "hd-finger" : "hd-tip", m: fitted, r: fitted, shade: SHADE.digit };
+        }
+        return { id, m, r: m, shade: SHADE.arm };
+      };
       const grips = {} as Record<Side, Point3>;
       for (const side of [-1, 1] as const) {
         const arm = armChain(side, armPose(side));
-        for (const { id, m } of arm) draws.push({ id, m, r: m });
+        for (const { id, m } of arm) draws.push(hd ? fitArm(side, id, m) : { id, m, r: m });
         // The hand is the third link of the chain.
         const grip = chain(toScreen, arm[2].m, translate(...GRIP));
         grips[side] = { x: grip[12], y: grip[13], z: grip[14] };
@@ -572,6 +718,7 @@ export function createRig() {
       let mood: Mood;
       if (input.face && input.face !== "hi") mood = input.face;
       else if (booting && !asleep) mood = "surprised";
+      else if (knocking && knockT >= KNOCK_HITS[0]) mood = "bonk";
       else if (spinLeft > 0) mood = "dizzy";
       else if (cheerLeft > 0 || waveLeft > 0) mood = "happy";
       else if (startleLeft > 0) mood = "surprised";
@@ -582,25 +729,43 @@ export function createRig() {
       else mood = "neutral";
 
       const shown = input.face === "hi" ? "hi" : mood;
-      if (shown !== face) {
+      // The screen also squashes as the close-up model hands over to the voxel
+      // one, and as the face comes back on glass that was a window.
+      const hole = Boolean(input.hole);
+      if (shown !== face || hd !== wasHd || hole !== wasHole) {
         face = shown;
+        wasHd = hd;
+        wasHole = hole;
         swapT = 0;
       }
       swapT += dt;
       const crt = clamp(swapT / SWAP_SECONDS, 0, 1);
 
       const screen = clamp(power.screen, 0, 1);
-      if (screen > 0.5) {
+      if (screen > 0.5 && !hole) {
         const still = mood === "sleepy" || mood === "dizzy" || shown === "hi";
-        const gx = still ? 0 : Math.round(clamp(headLocalYaw / 0.55, -1, 1));
-        const gy = still ? 0 : -Math.round(clamp(headPitch.x / 0.28, -1, 1));
+        // A glance moves the face a voxel pixel, or two close-up ones.
+        const pixelSize = hd ? HD_PIXEL : 1;
+        const gx = still ? 0 : Math.round(clamp(headLocalYaw / 0.55, -1, 1) * (hd ? 2 : 1)) * pixelSize;
+        const gy = still ? 0 : -Math.round(clamp(headPitch.x / 0.28, -1, 1)) * pixelSize;
         const screenM = chain(
           onHead,
           translate(gx, gy + FACE_CENTER_Y, 0),
           scale(1, 0.12 + 0.88 * crt, 1),
           translate(0, -FACE_CENTER_Y, 0),
         );
-        if (shown === "hi") {
+        const face = (id: PartId, m = screenM) => draws.push({ id, m, r: headRot, shade: SHADE.head });
+        if (hd && shown === "hi") {
+          // The greeting typed out, a block cursor blinking after it.
+          const typed = clamp(Math.floor(input.typed ?? GREETING_LENGTH), 0, GREETING_LENGTH);
+          for (let i = 0; i < typed; i += 1) face(`hd-glyph-${i}`);
+          const col = typed < GREETING_LENGTH ? GLYPH_COL[typed] : GLYPH_COL[GREETING_LENGTH - 1] + 2;
+          if (time % 0.6 < 0.36) face("hd-cursor", chain(screenM, translate(col * HD_PIXEL, 0, 0)));
+        } else if (hd) {
+          const eyes: Eyes = blinkLeft > 0 && BLINKS.has(MOODS[mood].eyes) ? "blink" : MOODS[mood].eyes;
+          face(`hd-eyes-${eyes}`);
+          face(`hd-mouth-${MOODS[mood].mouth}`);
+        } else if (shown === "hi") {
           draws.push({ id: "face-hi", m: screenM, r: headRot });
         } else {
           const { mouth } = MOODS[mood];
@@ -609,7 +774,7 @@ export function createRig() {
         }
       }
 
-      const parts: PartDraw[] = draws.map(({ id, m, r }) => ({ id, mvp: chain(world, m), rot: chain(charRot, r) }));
+      const parts: PartDraw[] = draws.map(({ id, m, r, shade }) => ({ id, mvp: chain(world, m), rot: chain(charRot, r), shade }));
 
       /* Sparks: short ballistic embers, shrinking as they cool. */
       for (let i = sparks.length - 1; i >= 0; i -= 1) {
@@ -661,9 +826,9 @@ export function createRig() {
         tilt: frame ? frame.tilt : tilt.x,
         scale: k,
         depth,
-        reach: pointSide || (waveLeft > 0 ? 1 : 0),
+        reach: pointSide || (waveLeft > 0 ? WAVE_SIDE : knocking ? KNOCK_SIDE : 0),
       };
-      return { parts, state: { glow, charge, screen: screen * (asleep ? 0.55 : 1) }, hold };
+      return { parts, state: { glow, charge, screen: screen * (asleep ? 0.55 : 1), hole }, hold };
     },
   };
 }

@@ -4,13 +4,15 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { PRELOADER_KEY } from "@/components/motion/PagePreloader";
-import { createDirector, openingScale, type Director, type Intro, type Placement } from "@/lib/mascot/director";
+import { CLOSEUP_HD, createDirector, type Director, type Intro, type Placement } from "@/lib/mascot/director";
+import { GREETING_LENGTH } from "@/lib/mascot/hd";
 import { HEAD_CENTER_Y } from "@/lib/mascot/model";
 import { createParcel, type Stage } from "@/lib/mascot/parcel";
 import { createMascotRenderer, type DrawState } from "@/lib/mascot/renderer";
-import { createRig, poweredOff, type FaceCue } from "@/lib/mascot/rig";
+import { createRig, KNOCK_HITS, poweredOff, type FaceCue } from "@/lib/mascot/rig";
 import { routes } from "@/lib/mascot/route";
 import { finale } from "@/lib/motion/finale";
+import { island } from "@/lib/hero/state";
 import { emitHeroCue } from "@/lib/motion/heroCue";
 import { ride } from "@/lib/transit/guide";
 import { jumpTo } from "@/lib/motion/jump";
@@ -23,20 +25,27 @@ import { jumpTo } from "@/lib/motion/jump";
  * its screen face reacts to the cursor, to flight and to being left alone.
  *
  * The page opens on it, full length in the middle of the screen: it powers
- * on, wakes, says hi and waves, then flies down onto the charging pad in the
- * hero room, which turns the room lights on (lib/motion/heroCue.ts). The
+ * on, wakes, says hi and waves, then flies down onto the socket of the hero
+ * island, and the touchdown builds the board (lib/motion/heroCue.ts). The
  * render pixel grows with its size, so the flight steps through resolutions.
  *
  * At every stop it works the section (the station's aim): it points at the
  * item under the cursor or in focus, watches the section's current item while
  * the cursor is quiet, and points that item out each time it changes. In the
- * room that means the posters, and clicking a poster sends it flying into
- * that poster as the page jumps to the case.
+ * hero that means the works' screens over the island, and clicking one sends
+ * it flying into that screen as the page jumps to the case.
  *
- * It runs one errand across the visit (lib/mascot/parcel.ts): the pad hands
+ * It runs one errand across the visit (lib/mascot/parcel.ts): the socket hands
  * it a parcel on touchdown, it carries it down the page and sets it down on
  * the request window, and the parcel goes in when the request is sent. The
  * window carries the parcel's state as `data-parcel` for its title bar.
+ *
+ * In 06 it is the scene: it flies up close until its glass covers the slot
+ * the stack board is laid out in, knocks on its temple, and the glass turns
+ * into a window onto the board (cut out of the canvas; the board under it
+ * stays the page's own, hover and all). The slot carries the screen's state
+ * as `data-screen`: dark (the face on the glass), static, on, off; without
+ * the attribute (phones, no WebGL, reduced motion) the board shows as is.
  *
  * In a transit it leaves the page for the board's world: the transit scene
  * (components/motion/TransitScene) puts the stretch's path for it through
@@ -52,11 +61,23 @@ import { jumpTo } from "@/lib/motion/jump";
 /** Render pixel sizes, CSS px; the largest at most a fifth of a voxel is used. */
 const PIXELS = [16, 12, 8, 6, 4, 3, 2];
 const pixelFor = (scale: number) => PIXELS.find((p) => p * 5 <= scale) ?? 2;
+/** The close-up model's cells are a quarter voxel: a finer grid for it. */
+const closeupPixel = (scale: number) => Math.min(4, Math.max(2, Math.round(scale / 24)));
 /** Dive into a poster, and when the page jump starts within it. */
 const DIVE_SECONDS = 0.55;
 const DIVE_JUMP_AT = 0.4;
 /** How long it points a new current item out. */
 const CUE_MS = 1400;
+/** Pace of the opening against its timeline's seconds; quicker again once the session has seen it. */
+const INTRO_PACE = { first: 1.3, seen: 1.9 };
+/** Screen station: the pause before the knock, the static after it, and
+    the power-down before it leaves. */
+const KNOCK_DELAY = 0.3;
+const STATIC_SECONDS = 0.45;
+const OFF_SECONDS = 0.35;
+
+/** wait and knock show the face, like dark; the rest cut the glass out. */
+type ScreenMode = "dark" | "wait" | "knock" | "static" | "on" | "off";
 
 type ReadyWindow = Window & { __telemetryReady?: boolean };
 type Point = { x: number; y: number };
@@ -95,13 +116,26 @@ export function Mascot() {
     const rig = createRig();
     let director: Director | null = null;
 
+    /* Screen stations: the element shows only through the glass, so it is
+       dark until the mascot knocks it on. */
+    let screenMode: ScreenMode = "dark";
+    let screenT = 0;
+    const showScreen = (el: HTMLElement, mode: ScreenMode) => {
+      const shown = mode === "wait" || mode === "knock" ? "dark" : mode;
+      if (el.dataset.screen !== shown) el.dataset.screen = shown;
+    };
+
     /* Route and its triggers are rebuilt whenever the breakpoint flips. */
     const media = gsap.matchMedia();
     media.add({ desktop: "(min-width: 761px)", mobile: "(max-width: 760px)" }, (context) => {
-      director = createDirector(context.conditions?.desktop ? routes.desktop : routes.mobile);
+      const next = createDirector(context.conditions?.desktop ? routes.desktop : routes.mobile);
+      director = next;
+      screenMode = "dark";
+      next.screens.forEach((el) => showScreen(el, "dark"));
       rig.teleport();
       return () => {
         director = null;
+        next.screens.forEach((el) => delete el.dataset.screen);
       };
     });
 
@@ -150,28 +184,27 @@ export function Mascot() {
     document.addEventListener("pointerover", onOver, { passive: true });
     document.documentElement.addEventListener("pointerleave", onLeave);
 
-    /* The pad shows a contact shadow while the robot stands on it. */
-    const pad = document.querySelector<HTMLElement>("[data-room-pad]");
-    let home = false;
+    /* The socket's pad glows steady while the robot stands on it. */
     const setHome = (next: boolean) => {
-      if (next === home || !pad) return;
-      home = next;
-      pad.dataset.home = next ? "1" : "0";
+      island.home = next;
     };
 
-    /* Intro: it hovers mid-screen with the glass dark; it powers on with a
-       stutter, dozes, jolts awake, looks about, writes HI and waves, fills its
-       charge cells — then it flies down onto the pad. The
-       pull-back starts the hero build, the touchdown switches the room on.
+    /* Intro: it opens on a close-up, the glass dark; it powers on with a
+       stutter, dozes, jolts awake, looks about, raises its hand and waves,
+       fills its charge cells and types a greeting across its screen. The
+       camera pulls back to the whole robot, which flies down onto the socket.
+       The flight starts the hero build, the touchdown builds the island.
        Any scroll, key or click fast-forwards it.
        The timeline is paused and stepped by the render tick with its clamped
        frame time, so a stall while the page loads holds the scene instead of
        skipping its beats (the global ticker runs without lag smoothing). */
-    const intro: Intro = { shown: false, p: 0 };
+    const intro: Intro = { shown: false, p: 0, zoom: 1, typed: 0 };
     const power = poweredOff();
     let face: FaceCue | null = null;
     let introTimeline: gsap.core.Timeline | null = null;
-    let introSpeed = 1;
+    let introSpeed = INTRO_PACE.first;
+    /* Development only: the intro held still for __mascotShot. */
+    let introHeld = false;
     const hurry = () => {
       introSpeed = 5;
     };
@@ -200,12 +233,7 @@ export function Mascot() {
       rig.puff();
       rig.flex(-1);
       rig.flex(1);
-      if (pad) {
-        pad.dataset.state = "land";
-        window.setTimeout(() => {
-          pad.dataset.state = "done";
-        }, 700);
-      }
+      island.landedAt = performance.now();
       emitHeroCue("lights");
     };
     const playIntro = () => {
@@ -214,7 +242,7 @@ export function Mascot() {
       // Landed on a restored scroll position: nobody is watching the hero.
       if (window.scrollY > window.innerHeight * 0.5) {
         Object.assign(power, { screen: 1, charge: 1 });
-        intro.p = 1;
+        Object.assign(intro, { p: 1, zoom: 0 });
         parcel.give(true);
         emitHeroCue("world");
         emitHeroCue("lights");
@@ -236,19 +264,20 @@ export function Mascot() {
         .add(setFace("sleepy"), 0.35)
         .add(() => {
           face = "surprised";
-          rig.startle(openingScale(width, height));
-        }, 1.0)
-        .add(setFace(null), 1.35)
-        .add(setFace("hi"), 1.8)
-        .add(() => rig.wave(), 1.8)
-        .to(power, { charge: 1, duration: 0.5, ease: "steps(4)" }, 1.85)
-        .add(() => {
-          face = null;
-          emitHeroCue("world");
-        }, 3.0)
-        .to(intro, { p: 1, duration: 1.5, ease: "none" }, 3.0)
-        .add(touchdown, 4.5);
-      if (seen) introSpeed = 1.5;
+          // A hop sized to the close-up.
+          rig.startle(lastPlace.visible ? lastPlace.scale * 0.45 : 8);
+        }, 1.1)
+        .add(setFace(null), 1.45)
+        .add(() => rig.wave(3.5), 2.1)
+        .to(power, { charge: 1, duration: 0.5, ease: "steps(4)" }, 2.15)
+        .add(setFace("hi"), 2.9)
+        .to(intro, { typed: GREETING_LENGTH, duration: 0.9, ease: `steps(${GREETING_LENGTH})` }, 2.9)
+        .add(setFace(null), 4.6)
+        .to(intro, { zoom: 0, duration: 1.2, ease: "power2.inOut" }, 4.9)
+        .add(() => emitHeroCue("world"), 6.0)
+        .to(intro, { p: 1, duration: 1.5, ease: "none" }, 6.1)
+        .add(touchdown, 7.6);
+      if (seen) introSpeed = INTRO_PACE.seen;
       introTimeline = tl;
       hurryEvents.forEach((type) => window.addEventListener(type, hurry, { passive: true }));
     };
@@ -256,8 +285,8 @@ export function Mascot() {
     if ((window as ReadyWindow).__telemetryReady) playIntro();
     const introFallback = window.setTimeout(playIntro, 4200);
 
-    /* Posters: a click is a dive (pointing is the hero station's aim). */
-    const posters = Array.from(document.querySelectorAll<HTMLAnchorElement>("[data-room-poster]"));
+    /* Works' screens: a click is a dive (pointing is the hero station's aim). */
+    const posters = Array.from(document.querySelectorAll<HTMLAnchorElement>("[data-island-work]"));
     let dive: { el: HTMLAnchorElement; t: number; from: Placement & { visible: true }; jumped: boolean } | null = null;
     let divedAt = 0;
     let lastPlace: Placement = { visible: false };
@@ -274,7 +303,7 @@ export function Mascot() {
       return () => el.removeEventListener("click", click);
     });
 
-    /* Flies from where it stood into the poster's centre, shrinking away; the
+    /* Flies from where it stood into the screen's centre, shrinking away; the
        page jump starts on the way so the two overlap. */
     const placeDive = (dt: number): Placement => {
       if (!dive) return { visible: false };
@@ -311,22 +340,23 @@ export function Mascot() {
     let cueUntil = 0;
     let last = performance.now();
 
-    const tick = () => {
+    const step = (forcedDt?: number) => {
       const now = performance.now();
-      const dt = Math.min(0.05, (now - last) / 1000);
+      const dt = forcedDt ?? Math.min(0.05, (now - last) / 1000);
       last = now;
-      if (!director || document.hidden) return;
+      // A forced step (__mascotShot) draws even in a hidden tab.
+      if (!director || (document.hidden && forcedDt === undefined)) return;
       if (window.scrollY !== lastScroll) {
         lastScroll = window.scrollY;
         lastActive = now;
         hurry();
       }
-      if (introTimeline && introTimeline.progress() < 1) {
+      if (introTimeline && introTimeline.progress() < 1 && !introHeld) {
         introTimeline.totalTime(introTimeline.totalTime() + dt * introSpeed, false);
       }
 
       let place = director.evaluate(window.scrollY, width, height, intro);
-      // After a dive it stays inside the poster until the hero is left, or
+      // After a dive it stays inside the screen until the hero is left, or
       // until the page is back at rest on the hero (a jump that went nowhere).
       if (divedAt) {
         if (!place.visible || place.key !== "hero" || (place.settled && now - divedAt > 1500)) divedAt = 0;
@@ -354,6 +384,35 @@ export function Mascot() {
       rideWave = riding && ride.wave;
       lastPlace = place;
 
+      /* The screen: knocked on once it has settled over the element, a beat
+         of static, the element; powered down on its way out. */
+      const screen = place.visible ? place.screen : undefined;
+      if (screen) {
+        const was = screenMode;
+        screenT += dt;
+        const go = (mode: ScreenMode) => {
+          screenMode = mode;
+          screenT = 0;
+          if (mode === "knock") rig.knock();
+        };
+        if (screenMode === "dark") {
+          if (screen.live) go("wait");
+        } else if (screenMode === "wait" || screenMode === "knock") {
+          if (!screen.live) go("dark");
+          else if (screenMode === "wait" && screenT >= KNOCK_DELAY) go("knock");
+          else if (screenMode === "knock" && screenT >= KNOCK_HITS[KNOCK_HITS.length - 1]) go("static");
+        } else if (screenMode === "static" || screenMode === "on") {
+          if (!screen.live) go("off");
+          else if (screenMode === "static" && screenT >= STATIC_SECONDS) go("on");
+        } else if (screen.live) go("static");
+        else if (!screen.aligned || screenT >= OFF_SECONDS) go("dark");
+        if (screenMode !== was) showScreen(screen.el, screenMode);
+      } else if (screenMode !== "dark") {
+        screenMode = "dark";
+        director.screens.forEach((el) => showScreen(el, "dark"));
+      }
+      const hole = screenMode === "static" || screenMode === "on" || screenMode === "off";
+
       setHome(place.visible && place.key === "hero" && place.settled);
       const spot = director.parcelSpot();
       let frame: ReturnType<typeof rig.update> | null = null;
@@ -376,7 +435,9 @@ export function Mascot() {
         lastKey = place.key;
         wasSettled = place.settled;
 
-        const nextPixel = pixelFor(place.scale);
+        // The close-up model until the pull-back is nearly done.
+        const hd = place.hd ?? (place.zoom ?? 0) > CLOSEUP_HD;
+        const nextPixel = hd ? closeupPixel(place.scale) : pixelFor(place.scale);
         if (nextPixel !== pixel) {
           pixel = nextPixel;
           fit();
@@ -403,7 +464,7 @@ export function Mascot() {
         const fresh = look && now < lookUntil && !riding ? look : null;
         const gaze = point ?? fresh ?? (active ? centre(active) : null);
         /* Boop: a mouse brushing past the head gets a hop and a spin. */
-        if (gaze && !point && place.settled && now - lastMove < 120 && now > boopReadyAt) {
+        if (gaze && !point && place.settled && !place.lock && now - lastMove < 120 && now > boopReadyAt) {
           const head = rig.head;
           if (Math.hypot(gaze.x - head.x, gaze.y - head.y) < place.scale * 7) {
             rig.boop();
@@ -432,6 +493,11 @@ export function Mascot() {
           carry: parcel.carry,
           frame: riding ? { yaw: ride.yaw, tilt: ride.tilt, roll: ride.roll } : null,
           face: riding && ride.face ? ride.face : face,
+          hd,
+          perspective: place.zoom ?? 0,
+          typed: intro.typed,
+          lock: place.lock,
+          hole,
         });
       }
 
@@ -454,7 +520,20 @@ export function Mascot() {
       renderer.draw(frame ? [...frame.parts, ...parcelParts] : parcelParts, state);
       drawn = true;
     };
+    const tick = () => step();
     gsap.ticker.add(tick);
+    /* Development only: `__mascotShot(seconds)` holds the intro at that
+       second, renders a second's worth of frames on top and returns the
+       canvas, for checking the opening without a running clock. */
+    if (process.env.NODE_ENV !== "production") {
+      (window as Window & { __mascotShot?: (at: number, frames?: number) => string }).__mascotShot = (at, frames = 60) => {
+        playIntro();
+        introHeld = true;
+        introTimeline?.totalTime(at, false);
+        for (let i = 0; i < frames; i += 1) step(1 / 60);
+        return canvas.toDataURL("image/png");
+      };
+    }
 
     return () => {
       gsap.ticker.remove(tick);

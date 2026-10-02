@@ -1,5 +1,6 @@
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { clamp, easeInCubic, easeInOut, easeOutCubic, mix } from "@/lib/mascot/math";
+import { GLASS_WIDE } from "@/lib/mascot/hd";
 import { HEAD_CENTER_Y, PEEK_DEPTH, PEEK_HIDE } from "@/lib/mascot/model";
 import type { Spot } from "@/lib/mascot/parcel";
 import type { AimDef, CameoDef, Pose, RouteDef, StationDef } from "@/lib/mascot/route";
@@ -12,13 +13,19 @@ import type { AimDef, CameoDef, Pose, RouteDef, StationDef } from "@/lib/mascot/
  * numbers and the live box of at most one element, so the mascot stays glued
  * to its card while the page scrolls under it.
  *
- * A station marked `opening` opens the page: the intro first holds the whole
- * mascot in the middle of the viewport, about half its height (the voxel
- * model is too coarse for a close-up), then flies it in an arc down onto its
- * spot, shrinking as it goes.
+ * A station marked `opening` opens the page: the intro first holds a close-up
+ * of the robot (the close-up model, hd.ts: its head filling the screen and
+ * room beside it for the waving hand), pulls back to the whole mascot in the
+ * middle of the viewport, about half its height, then flies it in an arc
+ * down onto its spot, shrinking as it goes.
  *
  * While it holds a station the placement carries the station's aim, which
  * the mascot resolves against the cursor and the section's current item.
+ *
+ * A `screen` station is a close-up of its own: it flies up from under the
+ * screen, growing until its glass covers the station's element exactly (the
+ * element is as wide as the glass), squares up to the camera and holds
+ * there; it powers the screen down before it shrinks away again.
  *
  * Must be created inside a gsap.matchMedia callback so its triggers are
  * reverted when the breakpoint changes.
@@ -44,12 +51,23 @@ export type Placement =
       aim: AimDef | null;
       /** At the station where the page powers off. */
       halts?: boolean;
+      /** The opening close-up: 1 held … 0 pulled back. */
+      zoom?: number;
+      /** Draw the close-up model whatever the zoom (a screen station). */
+      hd?: boolean;
+      /** 0 free … 1 square on to the camera and still (lib/mascot/rig.ts). */
+      lock?: number;
+      /** A screen station's element, and whether the glass covers it now
+          (`aligned`) and is staying (`live`: not on its way out). */
+      screen?: { el: HTMLElement; aligned: boolean; live: boolean };
     };
 
 type Range = { start: number; end: number };
 
-/** Opening shot: hidden until shown, then 0 holds the opening shot … 1 landed. */
-export type Intro = { shown: boolean; p: number };
+/** Opening shot: hidden until shown; `zoom` 1 holds the close-up … 0 the
+    whole robot, then `p` 0 holds the whole robot … 1 landed. `typed` counts
+    the glyphs of the greeting typed out on its screen. */
+export type Intro = { shown: boolean; p: number; zoom: number; typed: number };
 
 /** Model height from the ground point to the antenna tip, and the height of
     its middle, in voxels; the arms spread a little wider than this. */
@@ -60,6 +78,30 @@ const ROBOT_WIDE = 16;
 /** CSS px per voxel for the opening shot: the whole robot, half the viewport tall. */
 export function openingScale(width: number, height: number) {
   return Math.min((height * 0.5) / ROBOT_TALL, (width * 0.6) / ROBOT_WIDE);
+}
+
+/** Below this the close-up has pulled back far enough to swap to the voxel robot. */
+export const CLOSEUP_HD = 0.15;
+
+/** A screen station: CSS px per voxel above which the close-up model is
+    drawn, and the share of its way out it holds still, the screen powering
+    down, before it leaves. */
+const SCREEN_HD = 22;
+const SCREEN_HOLD = 0.2;
+
+/**
+ * The close-up framing: CSS px per voxel and where the head centre goes. On
+ * a wide screen the head fills most of the height, set right so the waving
+ * hand comes up on its left; on a tall one the whole robot fits the width,
+ * the hand raised beside its head.
+ */
+function closeup(width: number, height: number) {
+  if (width > height) {
+    const k = Math.min((height * 0.68) / 10, (width * 0.62) / 15.5);
+    return { k, x: width * 0.57, y: height * 0.6 };
+  }
+  const k = Math.min((height * 0.62) / ROBOT_TALL, (width * 0.86) / 21);
+  return { k, x: width * 0.5 + k * 1.2, y: height * 0.3 };
 }
 
 type ResolvedStation = { def: StationDef; el: HTMLElement; enter: ScrollTrigger | null; leave: ScrollTrigger | null };
@@ -95,16 +137,26 @@ export function createDirector(route: RouteDef) {
     return [{ def, range: measure(trigger, [def.start, def.end]), along }];
   });
 
-  function placeOpening(station: ResolvedStation, p: number, width: number, height: number): Placement {
+  function placeOpening(station: ResolvedStation, intro: Intro, width: number, height: number): Placement {
     const spot = placeStation(station, 1, 0, width, height);
     if (!spot.visible) return spot;
+    const { p, zoom } = intro;
     const ko = openingScale(width, height);
     // The size falls away first (the pull-back), then the glide catches up.
-    const k = Math.exp(mix(Math.log(ko), Math.log(spot.scale), easeOutCubic(clamp(p * 1.25, 0, 1))));
+    let k = Math.exp(mix(Math.log(ko), Math.log(spot.scale), easeOutCubic(clamp(p * 1.25, 0, 1))));
     const s = easeInOut(p);
-    const headX = mix(width / 2, spot.x, s);
+    let headX = mix(width / 2, spot.x, s);
     const headY0 = height / 2 - (HEAD_CENTER_Y - ROBOT_MID) * ko;
-    const headY = mix(headY0, spot.y - HEAD_CENTER_Y * spot.scale, s) - Math.sin(Math.PI * s) * height * 0.16;
+    let headY = mix(headY0, spot.y - HEAD_CENTER_Y * spot.scale, s) - Math.sin(Math.PI * s) * height * 0.16;
+    let tilt = mix(0.04, spot.tilt ?? 0.22, s);
+    if (zoom > 0) {
+      // Before that, the camera dollies back out of the close-up.
+      const near = closeup(width, height);
+      k = Math.exp(mix(Math.log(k), Math.log(near.k), zoom));
+      headX = mix(headX, near.x, zoom);
+      headY = mix(headY, near.y, zoom);
+      tilt = mix(tilt, 0.02, zoom);
+    }
     return {
       ...spot,
       x: headX,
@@ -112,15 +164,66 @@ export function createDirector(route: RouteDef) {
       scale: k,
       pose: "hover",
       fly: Math.sin(Math.PI * Math.min(1, p * 1.08)),
-      tilt: mix(0.04, spot.tilt ?? 0.22, s),
+      tilt,
       settled: false,
       occluders: null,
       aim: null,
+      zoom,
+    };
+  }
+
+  /** A close-up whose glass covers the element: up from under the screen,
+      growing as it comes; away up to the left, shrinking back. */
+  function placeScreen(station: ResolvedStation, enter: number, leave: number, width: number, height: number): Placement {
+    const { def, el } = station;
+    const box = el.getBoundingClientRect();
+    const near = Math.max(1, el.offsetWidth / GLASS_WIDE);
+    const far = def.scale;
+    const cx = box.left + box.width / 2;
+    const cy = box.top + box.height / 2;
+    let hx = cx;
+    let hy = cy;
+    let k = near;
+    let fly = 0;
+    let lock = 1;
+    if (leave > SCREEN_HOLD) {
+      const t = easeInCubic((leave - SCREEN_HOLD) / (1 - SCREEN_HOLD));
+      k = Math.exp(mix(Math.log(near), Math.log(far), Math.sqrt(t)));
+      hx = mix(cx, width * 0.2, t);
+      hy = mix(cy, -12 * far, t);
+      fly = Math.min(1, t * 3);
+      lock = 1 - Math.min(1, t * 4);
+    } else if (enter < 1) {
+      const t = easeOutCubic(enter);
+      k = Math.exp(mix(Math.log(far), Math.log(near), t * t));
+      hx = mix(width * 0.86, cx, t);
+      hy = mix(height + 4 * far, cy, t) - Math.sin(Math.PI * t) * height * 0.08;
+      fly = 1 - t;
+      lock = t * t;
+    }
+    const aligned = enter >= 1 && leave <= SCREEN_HOLD;
+    return {
+      visible: true,
+      key: def.id,
+      x: hx,
+      y: hy + HEAD_CENTER_Y * k,
+      scale: k,
+      pose: "hover",
+      fly,
+      tilt: mix(0.22, 0, lock),
+      settled: enter >= 1 && leave <= 0,
+      wave: false,
+      occluders: null,
+      aim: null,
+      hd: k > SCREEN_HD,
+      lock,
+      screen: { el, aligned, live: aligned && leave <= 0 },
     };
   }
 
   function placeStation(station: ResolvedStation, enter: number, leave: number, width: number, height: number): Placement {
     const { def, el } = station;
+    if (def.screen) return placeScreen(station, enter, leave, width, height);
     const k = def.scaleFromElement ? Math.max(1, el.offsetWidth) : def.scale;
     const box = el.getBoundingClientRect();
     const x = box.left + def.ax * box.width;
@@ -223,6 +326,8 @@ export function createDirector(route: RouteDef) {
   const drop = stations.find((station) => station.def.parcel);
 
   return {
+    /** Elements screen stations show through the glass. */
+    screens: stations.filter((station) => station.def.screen).map((station) => station.el),
     /** Station that takes the parcel, to tell when it has settled there. */
     dropKey: drop?.def.id ?? null,
     /** The element the parcel is set down on. */
@@ -247,7 +352,7 @@ export function createDirector(route: RouteDef) {
       for (let i = stations.length - 1; i >= 0; i -= 1) {
         const station = stations[i];
         if (!station.enter && station.def.opening && intro.shown && intro.p < 1) {
-          return placeOpening(station, intro.p, width, height);
+          return placeOpening(station, intro, width, height);
         }
         const enter = station.enter ? progress(scroll, station.enter) : intro.shown ? intro.p : 0;
         const leave = station.leave ? progress(scroll, station.leave) : 0;

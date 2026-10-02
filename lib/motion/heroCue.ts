@@ -3,8 +3,8 @@
  * owns the clock and announces two beats, and the hero reveal in
  * MotionProvider plays its parts on them.
  *
- * - "world": it leaves the opening shot for the room; the wordmark and copy build.
- * - "lights": it touches down on the pad; the room lights come on.
+ * - "world": it leaves the opening shot for the island; the wordmark and copy build.
+ * - "lights": it touches down on the socket; the island's board builds.
  *
  * A cue is remembered once fired, so a listener that subscribes late still
  * runs. When the mascot cannot play (no WebGL) it fires both at once.

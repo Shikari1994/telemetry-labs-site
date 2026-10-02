@@ -94,10 +94,10 @@ const dmFleet = capture("dm-fleet", "screens", "Drill Monitor, парк обор
 const dmMobile = capture("dm-mobile", "screens", "Drill Monitor для Android: парк, мониторинг и КНБК на трёх телефонах");
 
 /*
- * The hero room's posters come alive under the cursor. geo-tn.com runs through
- * its own captures; Drill Monitor plays the screen recording of its drilling
- * module from the geo-tn.com build (video/module-drilling.mp4), cropped to the
- * top of the app's window.
+ * The works' screens over the hero island come alive while current.
+ * geo-tn.com runs through its own captures; Drill Monitor plays the screen
+ * recording of its drilling module from the geo-tn.com build
+ * (video/module-drilling.mp4), cropped to the top of the app's window.
  */
 const gtnHero = {
   ...gtnHeroStill,

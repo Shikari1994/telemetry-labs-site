@@ -408,13 +408,13 @@ img {
   image-rendering: pixelated;
 }
 /* A live feed over the poster (lib/media/live.ts): it dissolves in and out
-   on its own, so the canvas only has to be there while it plays. */
+   on its own, so the canvas only has to be there while it plays. Drawn at
+   the capture's size and scaled down smoothly, like the poster under it. */
 .alphaMediaLive {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  image-rendering: pixelated;
   visibility: hidden;
 }
 .alphaMediaLive[data-live="on"] {
@@ -722,402 +722,146 @@ img {
   margin: 0;
 }
 
-/* Hero room -------------------------------------------------------------- */
-/* An isometric white-room diorama made of CSS 3D planes. Sizes are container
-   units of the stage, so the room scales as one object; --L is the floor edge,
-   everything else is a fraction of it. The pivot sits on the floor centre. */
-.roomStage {
-  --room-h: clamp(
+/* Hero island ------------------------------------------------------------ */
+/* A floating chunk of the voxel board in WebGL (components/sections/
+   HeroIsland). The canvas is drawn small and scaled up crisp; the works'
+   screens and the mascot's spot are laid over it from the scene's camera. */
+.island {
+  --island-h: clamp(
     420px,
     calc(100svh - var(--header-h) - 28px - (100vw - 2 * var(--gutter)) * 7 / 83 - clamp(28px, 3vw, 44px) - 24px),
     720px
   );
   position: relative;
-  height: var(--room-h);
-  container-type: size;
-  perspective: 2600px;
-  perspective-origin: 50% 30%;
+  height: var(--island-h);
 }
-.roomPivot {
-  --L: min(68cqw, 84cqh);
-  --Hw: calc(var(--L) * 0.6);
-  --t: calc(var(--L) * 0.032);
-  --f: calc(var(--L) * 0.055);
-  --tilt: 22deg;
-  --px: 0;
-  --py: 0;
-  --dolly: 0;
-  position: absolute;
-  left: 50%;
-  top: calc(50% + var(--Hw) * 0.44);
-  width: 0;
-  height: 0;
-  transform-style: preserve-3d;
-  transform: rotateX(calc(-1 * var(--tilt) - var(--py) * 3deg - var(--dolly) * 12deg))
-    rotateY(calc(-45deg + var(--px) * 7deg));
-}
-.roomPivot > * {
-  position: absolute;
-  left: 0;
-  top: 0;
-  transform-origin: 0 0;
-}
-.roomPaint {
+.islandCanvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   image-rendering: pixelated;
 }
-
-.roomFloor {
-  width: var(--L);
-  height: var(--L);
-  transform-origin: 50% 50%;
-  transform: translate3d(calc(var(--L) / -2), calc(var(--L) / -2), 0) rotateX(90deg);
-}
-.roomPad,
-.roomShadow {
+.islandSpot {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  image-rendering: pixelated;
-  transform: translate(-50%, -50%);
-}
-.roomPad {
-  width: 34%;
-  height: 34%;
-  opacity: 0.4;
-}
-/* Touchdown: the pad flashes, then settles a little brighter. */
-.roomPad[data-state="land"] {
-  opacity: 1;
-  animation: room-pad 0.14s steps(1) 4;
-}
-.roomPad[data-state="done"] {
-  opacity: 0.5;
-}
-@keyframes room-pad {
-  50% {
-    opacity: 0.35;
-  }
-}
-.roomShadow {
-  width: 26%;
-  height: 20%;
-  opacity: 0;
-}
-.roomPad[data-home="1"] ~ .roomShadow {
-  opacity: 0.5;
-}
-.roomSpot {
-  position: absolute;
-  left: 50%;
-  top: 52%;
-  width: calc(var(--L) * 0.021);
+  left: 0;
+  top: 0;
   height: 1px;
-  transform: translateX(-50%);
   pointer-events: none;
 }
-
-.roomWall {
-  width: var(--L);
-  height: var(--Hw);
-  transform-style: preserve-3d;
-}
-.roomWallBack {
-  transform: translate3d(calc(var(--L) / -2), calc(-1 * var(--Hw)), calc(var(--L) / -2));
-}
-.roomWallLeft {
-  transform: translate3d(calc(var(--L) / -2), calc(-1 * var(--Hw)), calc(var(--L) / 2)) rotateY(90deg);
-}
-.roomCap {
-  background: #bdb7ab;
-  box-shadow: inset 0 -1px 0 #faf9f5;
-}
-.roomCapBack {
-  width: calc(var(--L) + var(--t));
-  height: var(--t);
-  transform: translate3d(
-      calc(var(--L) / -2 - var(--t)),
-      calc(-1 * var(--Hw)),
-      calc(var(--L) / -2 - var(--t))
-    )
-    rotateX(90deg);
-}
-.roomCapLeft {
-  width: var(--t);
-  height: var(--L);
-  transform: translate3d(calc(var(--L) / -2 - var(--t)), calc(-1 * var(--Hw)), calc(var(--L) / -2)) rotateX(90deg);
-}
-.roomEnd {
-  width: var(--t);
-  height: var(--Hw);
-  background: #d6cfc2;
-}
-.roomEndBack {
-  transform: translate3d(calc(var(--L) / 2), calc(-1 * var(--Hw)), calc(var(--L) / -2)) rotateY(90deg);
-  background: #bdb7ab;
-}
-.roomEndLeft {
-  transform: translate3d(calc(var(--L) / -2 - var(--t)), calc(-1 * var(--Hw)), calc(var(--L) / 2));
-}
-.roomSlab {
-  width: calc(var(--L) + var(--t));
-  height: var(--f);
-  border-top: 2px solid var(--accent);
-}
-.roomSlabFront {
-  transform: translate3d(calc(var(--L) / -2 - var(--t)), 0, calc(var(--L) / 2));
-  background: #5e5d59;
-}
-.roomSlabSide {
-  transform: translate3d(calc(var(--L) / 2), 0, calc(var(--L) / 2)) rotateY(90deg);
-  background: #3d3a35;
-}
-
-/* Billboards stand on the floor and face the camera. */
-.roomSprite {
-  transform-origin: 50% 100%;
-  image-rendering: pixelated;
-}
-/* Lit by the lamp: dark until the room switches on. */
-.motion-enabled .roomStage:not([data-lights="on"]) .roomLit {
-  visibility: hidden;
-}
-.roomPool {
-  position: absolute;
-  image-rendering: pixelated;
-  left: 24%;
-  top: 24%;
-  width: 52%;
-  height: 52%;
-}
-
-/* Boxes: size and floor position in floor lengths. x runs along the back
-   wall, z toward the open front, y up; (x0, z0) is the corner nearest the
-   back-left. Only the faces the camera sees are built. */
-.roomBox {
-  --x0: 0;
-  --z0: 0;
-  --y0: 0;
-  --bx: 0.1;
-  --bz: 0.1;
-  --by: 0.1;
-  transform-style: preserve-3d;
-  transform: translate3d(calc(var(--L) * var(--x0)), calc(var(--L) * var(--y0) * -1), calc(var(--L) * var(--z0)));
-}
-.roomBoxFace {
-  position: absolute;
-  left: 0;
-  top: 0;
-  transform-origin: 0 0;
-}
-.roomBoxTop {
-  width: calc(var(--L) * var(--bx));
-  height: calc(var(--L) * var(--bz));
-  transform: translate3d(0, calc(var(--L) * var(--by) * -1), 0) rotateX(90deg);
-}
-.roomBoxFront {
-  width: calc(var(--L) * var(--bx));
-  height: calc(var(--L) * var(--by));
-  transform: translate3d(0, calc(var(--L) * var(--by) * -1), calc(var(--L) * var(--bz)));
-}
-.roomBoxRight {
-  width: calc(var(--L) * var(--bz));
-  height: calc(var(--L) * var(--by));
-  transform: translate3d(calc(var(--L) * var(--bx)), calc(var(--L) * var(--by) * -1), calc(var(--L) * var(--bz)))
-    rotateY(90deg);
-}
-
-/* Server rack in the right corner, against the back wall. */
-.roomRack {
-  --x0: 0.37;
-  --z0: -0.5;
-  --bx: 0.12;
-  --bz: 0.11;
-  --by: 0.42;
-}
-.roomLeds {
-  position: absolute;
-  left: 22%;
-  top: 2.5%;
-  bottom: 2.5%;
-  display: grid;
-  grid-template-rows: repeat(7, 1fr);
-  align-items: center;
-}
-.roomLeds i {
-  width: calc(var(--L) * 0.011);
-  height: calc(var(--L) * 0.011);
-  background: var(--sig-lime);
-  animation: room-led 1.1s steps(1) infinite;
-}
-.roomLeds i:nth-child(3n + 2) {
-  background: #f2a65a;
-  animation-duration: 0.7s;
-}
-.roomLeds i:nth-child(4n + 3) {
-  animation-duration: 1.9s;
-  animation-delay: -0.4s;
-}
-.roomLeds i:nth-child(5) {
-  background: var(--accent);
-  animation-duration: 2.6s;
-}
-@keyframes room-led {
-  60% {
-    opacity: 0.2;
-  }
-}
-
-/* Pendant lamp over the pad: cord, shade and beam. The
-   billboard stands on the floor centre; the shade hangs above the robot. */
-.roomLamp {
-  width: calc(var(--L) * 0.44);
-  height: calc(var(--L) * 0.86);
-  transform: translate3d(calc(var(--L) * -0.22), calc(var(--L) * -0.86), 0) rotateY(45deg);
-  pointer-events: none;
-}
-.roomLampCord {
-  position: absolute;
-  left: calc(50% - 1px);
-  top: 0;
-  width: 2px;
-  height: calc(var(--L) * 0.165);
-  background: linear-gradient(to bottom, transparent, #3d3a35 40%);
-}
-.roomLampShade {
+.islandStatic {
+  display: none;
   position: absolute;
   left: 50%;
-  top: calc(var(--L) * 0.16);
-  width: calc(var(--L) * 0.12);
-  height: calc(var(--L) * 0.12 * 10 / 14);
-  transform: translateX(-50%);
-  image-rendering: pixelated;
-}
-.roomCone {
-  position: absolute;
-  left: 0;
   bottom: 0;
-  width: 100%;
-  height: calc(var(--L) * 0.62);
-  image-rendering: pixelated;
-}
-.roomStatic {
-  display: none;
-  transform: translate3d(-50%, -100%, 0) rotateY(45deg);
+  transform: translateX(-50%);
 }
 
-/* Posters: one per work, hung away from the corner so the robot never
-   covers them. Type is sized from the room so a poster scales as a whole. */
-.roomPoster {
+/* A work's screen over its hologram: shown once the slab has assembled,
+   scanned in from the top; gone at once when it is pulled back. */
+.islandWork {
   position: absolute;
-  top: 12%;
-  width: 30%;
-  aspect-ratio: 3 / 4;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55em;
-  padding: 0.8em;
-  font-size: calc(var(--L) * 0.017);
+  left: 0;
+  top: 0;
+  display: block;
   color: var(--ink);
   text-decoration: none;
+  clip-path: inset(0 0 100% 0);
+}
+.islandWork[data-shown] {
+  clip-path: inset(-40px -4px -4px -4px);
+  transition: clip-path 0.4s steps(8);
+}
+.islandScreen {
+  position: absolute;
+  inset: 0;
+  display: block;
   background: var(--bg);
-  outline: 1px solid rgba(20, 20, 19, 0.5);
-  box-shadow: calc(var(--L) * 0.014) calc(var(--L) * 0.014) 0 rgba(61, 58, 53, 0.28);
-  transform: translateZ(1px);
-  transition: transform 0.28s steps(4), box-shadow 0.28s steps(4);
+  outline: 1px solid rgba(250, 249, 245, 0.55);
 }
-.roomWallLeft .roomPoster {
-  left: 23%;
+.islandScreen .alphaMedia {
+  width: 100%;
+  height: 100%;
 }
-.roomWallBack .roomPoster {
-  left: 47%;
+/* The work that is not current steps back into the page's dark. */
+.islandScreen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  opacity: 0;
+  pointer-events: none;
 }
-/* Under the cursor a poster steps off its wall and grows, so the work
-   playing in it (AlphaVideo live) reads. */
-.roomPoster:hover,
-.roomPoster:focus-visible {
-  z-index: 2;
-  transform: translateZ(calc(var(--L) * 0.06)) scale(1.4);
-  box-shadow: calc(var(--L) * 0.035) calc(var(--L) * 0.035) 0 rgba(61, 58, 53, 0.22);
+.islandWork:not([data-current]) .islandScreen::after {
+  opacity: 0.4;
 }
-.roomPoster:focus-visible {
+.islandTitle {
+  position: absolute;
+  left: -1px;
+  bottom: calc(100% + 1px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 3px;
+  background: var(--ink);
+  color: var(--bg);
+  font: 500 11px/1.2 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.islandTitle b {
+  font: 400 15px/1 var(--pixel);
+  color: var(--accent-deep);
+}
+.islandTitle i {
+  font-style: normal;
+}
+.islandWork:not([data-current]) .islandTitle {
+  background: var(--ink-4);
+}
+.islandWork:hover .islandTitle,
+.islandWork:focus-visible .islandTitle {
+  background: var(--accent);
+}
+.islandWork:hover .islandTitle b,
+.islandWork:focus-visible .islandTitle b {
+  color: var(--bg);
+}
+.islandWork:focus-visible {
   outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 /* The mascot has just flown in. */
-.roomPoster[data-entered] {
-  animation: poster-enter 0.5s steps(1);
+.islandWork[data-entered] .islandScreen {
+  animation: work-enter 0.5s steps(1);
 }
-@keyframes poster-enter {
+@keyframes work-enter {
   0%,
   50% {
     filter: brightness(1.5);
-    outline: calc(var(--L) * 0.008) solid var(--accent);
+    outline: 3px solid var(--accent);
   }
   25%,
   75% {
     filter: none;
   }
 }
-.roomPosterTop {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1em;
-  font: 500 0.6em/1.2 var(--mono);
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
-  text-align: right;
+/* Without WebGL the works stand as two plain screens. */
+.island.is-flat {
+  height: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 56px var(--gutter);
+  padding-top: 40px;
 }
-.roomPosterTop b {
-  font: 400 3.4em/0.8 var(--pixel);
-  color: var(--accent);
+.island.is-flat .islandCanvas,
+.island.is-flat .islandSpot {
+  display: none;
 }
-.roomPosterArt {
-  display: block;
+.island.is-flat .islandWork {
+  position: relative;
   aspect-ratio: 16 / 10;
-  border: 1px solid var(--line);
-}
-.roomPosterArt .alphaMedia {
-  width: 100%;
-  height: 100%;
-}
-.roomPosterTitle {
-  font: 400 1.7em/0.95 var(--pixel);
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
-}
-.roomPosterFoot {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 1em;
-  margin-top: auto;
-  padding-top: 0.6em;
-  border-top: 1px solid var(--line);
-  font: 500 0.55em/1.2 var(--mono);
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
-}
-.roomPosterFoot i {
-  font-style: normal;
-  font-size: 1.8em;
-  line-height: 0.8;
-  color: var(--accent);
-}
-
-/* Lights: the boot sequence switches the room on (MotionProvider). */
-.roomDark {
-  position: absolute;
-  inset: 0;
-  background: var(--bg);
-  opacity: 0;
-  pointer-events: none;
-}
-.motion-enabled .roomDark {
-  opacity: 0.94;
 }
 .figCaption {
   display: flex;
@@ -2257,6 +2001,23 @@ img {
   border-radius: 50%;
   transform: rotate(var(--spin, 0deg));
 }
+/* The WebGL screen (desktop with motion) takes the stage once its captures
+   have loaded; the ring stays laid out, unseen, for the mascot's aim. */
+.showcaseScene {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: none;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.ringStage.is-gl .showcaseScene {
+  display: block;
+}
+.ringStage.is-gl .ringCam {
+  visibility: hidden;
+}
 .ringInfo {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2366,28 +2127,28 @@ img {
   display: none;
 }
 
-/* Pinned heads (03 ring, 05 viewer) sit in three columns so the scene keeps
-   the height. */
-:is(.viewerPin, .ringPin) .blockHead {
+/* Pinned heads (03 ring, 05 viewer, 06 board) sit in three columns so the
+   scene keeps the height. */
+:is(.viewerPin, .ringPin, .boardPin) .blockHead {
   grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.6fr);
   row-gap: 14px;
   margin-bottom: 32px;
 }
-:is(.viewerPin, .ringPin) .blockNum {
+:is(.viewerPin, .ringPin, .boardPin) .blockNum {
   grid-row: 1 / span 2;
 }
-:is(.viewerPin, .ringPin) .blockNum .pixelText {
+:is(.viewerPin, .ringPin, .boardPin) .blockNum .pixelText {
   height: clamp(76px, 6.6vw, 104px);
 }
-:is(.viewerPin, .ringPin) .blockLabel {
+:is(.viewerPin, .ringPin, .boardPin) .blockLabel {
   grid-row: 1;
 }
-:is(.viewerPin, .ringPin) .blockTitle {
+:is(.viewerPin, .ringPin, .boardPin) .blockTitle {
   grid-column: 2;
   grid-row: 2;
   font-size: clamp(28px, 2.6vw, 44px);
 }
-:is(.viewerPin, .ringPin) .blockLead {
+:is(.viewerPin, .ringPin, .boardPin) .blockLead {
   grid-column: 3;
   grid-row: 2;
   align-self: end;
@@ -2841,49 +2602,16 @@ img {
   --explode: 1;
 }
 
-/* 06 Stack: technology orbit --------------------------------------------- */
-/* Tags are a wrapped list until TechOrbit takes over (.is-3d) and projects
-   each one onto the rotating sphere. */
-.orbit {
-  display: grid;
-  gap: 14px;
-}
-.orbitStage {
-  position: relative;
-  height: clamp(400px, 64vh, 620px);
-  overflow: hidden;
-}
-.orbitCanvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  image-rendering: pixelated;
-}
-.orbitTags {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-wrap: wrap;
-  align-content: center;
-  justify-content: center;
-  gap: 8px;
-  height: 100%;
-  margin: 0;
-  padding: 20px;
-  list-style: none;
-}
-.orbitStage.is-3d .orbitTags {
-  padding: 0;
-}
-.orbitStage.is-3d .orbitTag {
-  position: absolute;
-  left: 0;
-  top: 0;
-  will-change: transform, opacity;
-}
-/* Two inks only: orange for geo-tn.com, cream for Drill Monitor, and a
-   solid orange block for what both works use. */
+/* 06 Stack: the circuit board -------------------------------------------- */
+/* Phones (and the markup as shipped) read the board as a list by zone: each
+   chip a row with its note. From 761px it becomes the board: a CSS 3D plane
+   on a COLS x ROWS grid, chips as raised packages in sockets, traces in an
+   SVG on the plane. MotionProvider tilts it in and seats the chips on one
+   scrub (--tilt, --rz, --zoom on the plane; --lift on each chip).
+   Pinned, the board sits in a screen slot shaped like the mascot's glass
+   (11 x 8, and the head's bezel round it inside the dock). Once the mascot
+   claims the slot (data-screen) its window chrome goes and the board shows
+   only through the glass: dark, static, on, off. */
 [data-work="site"],
 [data-work="both"] {
   --c: var(--accent);
@@ -2891,27 +2619,73 @@ img {
 [data-work="monitor"] {
   --c: var(--ink);
 }
-.orbitTag {
-  padding: 4px 8px 3px;
-  border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
-  background: var(--bg);
-  font: 400 16px/1 var(--pixel);
-  white-space: nowrap;
-  color: var(--c);
-  transition:
-    background-color 0.15s steps(2),
-    color 0.15s steps(2);
+.board,
+.boardPin,
+.boardScreenView {
+  display: grid;
+  gap: 14px;
 }
-.orbitTag:hover,
-.orbitTag[data-work="both"] {
+.boardStatic {
+  display: none;
+}
+.boardStage {
+  padding: 16px 8px 4px;
+}
+.boardZones,
+.boardChips {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.boardZones {
+  display: grid;
+  gap: 22px;
+}
+.boardFrame {
+  margin: 0 0 6px;
+  font: 400 16px/1 var(--pixel);
+  letter-spacing: 0.06em;
+  color: var(--c, var(--ink-3));
+}
+.boardFrame.is-work {
+  margin-bottom: 4px;
+  font-size: 20px;
+  color: var(--ink-2);
+}
+.boardChip {
+  display: grid;
+  gap: 2px;
+  padding: 8px 4px;
+  border-top: 1px dashed var(--line);
+}
+.chipBody,
+.chipTop {
+  display: contents;
+}
+.boardChip b {
+  font: 400 16px/1.3 var(--pixel);
+  color: var(--c);
+}
+.boardZone[data-work="both"] .boardChip b {
+  width: fit-content;
+  padding: 0 4px;
   background: var(--c);
   color: var(--bg);
 }
-.orbitTag[data-work="both"]:hover {
-  background: var(--bg);
-  color: var(--c);
+.chipNote {
+  font: 400 13px/1.5 var(--mono);
+  color: var(--ink-2);
 }
-.orbitLegend {
+.boardTraces,
+.boardEdge,
+.boardLog,
+.chipRef,
+.chipPins,
+.chipFront,
+.chipRight {
+  display: none;
+}
+.boardLegend {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 24px;
@@ -2920,18 +2694,457 @@ img {
   letter-spacing: 0.05em;
   color: var(--ink-3);
 }
-.orbitLegend span {
+.boardLegend span {
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
-.orbitLegend i {
+.boardLegend i {
   width: 10px;
   height: 10px;
   border: 2px solid var(--c);
 }
-.orbitLegend [data-work="both"] i {
+.boardLegend [data-work="both"] i {
   background: var(--c);
+}
+
+@media (min-width: 761px) {
+  .boardStage {
+    display: flex;
+    flex-direction: column;
+    height: clamp(480px, calc(100svh - var(--header-h) - 120px), 800px);
+    padding: 0;
+  }
+  /* Pinned (motion on): head, board and legend are exactly one window tall. */
+  .motion-enabled .boardPin {
+    display: flex;
+    flex-direction: column;
+    height: calc(100svh - var(--header-h) - 24px);
+    min-height: 600px;
+  }
+  .motion-enabled .boardPin .blockHead {
+    margin-bottom: 22px;
+  }
+  /* The mascot's antenna rises right of centre, between the headline and
+     the lead's column; where the lead drops under the headline (≤1024px)
+     it stops short of the antenna. */
+  .motion-enabled .boardPin .blockLead {
+    max-width: 44ch;
+  }
+  /* The dock holds the mascot's head: the slot is its glass, with a voxel
+     of bezel and the roof sensor (0.75) above it; the rest of the head runs
+     off under the screen. */
+  .motion-enabled .boardDock {
+    container-type: size;
+    display: grid;
+    flex: 1;
+    align-items: start;
+    justify-items: center;
+    min-height: 0;
+  }
+  .motion-enabled .boardScreen {
+    --sw: min(92cqw, 112cqh, 68vw);
+    display: flex;
+    flex-direction: column;
+    width: var(--sw);
+    aspect-ratio: 11 / 8;
+    margin: calc(var(--sw) * 1.75 / 11) 0 0;
+    padding: calc(var(--sw) * 0.04) calc(var(--sw) * 0.035) calc(var(--sw) * 0.03);
+  }
+  .boardScreen[data-screen] .boardPlane {
+    --w: min(98cqw, 178cqh);
+  }
+  .motion-enabled .boardScreenView {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+  }
+  /* Claimed by the mascot: no window chrome, the glass is the frame. */
+  .boardScreen[data-screen]::before {
+    border: 0;
+    background: #121710;
+  }
+  .boardScreen[data-screen]::after {
+    inset: 0;
+    z-index: 3;
+    background:
+      radial-gradient(ellipse 75% 70% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.42)),
+      repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0, 0, 0, 0.24) 2px 3px);
+    pointer-events: none;
+  }
+  .boardScreen[data-screen] .tuiWinBar {
+    display: none;
+  }
+  .boardScreen[data-screen] .boardLegend {
+    justify-content: flex-end;
+  }
+  .boardScreen[data-screen="dark"],
+  .boardScreen[data-screen="static"] .boardScreenView {
+    visibility: hidden;
+  }
+  .boardScreen[data-screen="static"] .boardStatic {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background:
+      repeating-linear-gradient(to bottom, transparent 0 9px, rgba(195, 232, 141, 0.16) 9px 15px, transparent 15px 41px),
+      repeating-conic-gradient(rgba(195, 232, 141, 0.3) 0 25%, transparent 0 50%) 0 0 / 6px 6px,
+      repeating-conic-gradient(rgba(18, 23, 16, 0.85) 0 25%, transparent 0 50%) 0 0 / 10px 14px,
+      repeating-conic-gradient(rgba(195, 232, 141, 0.22) 0 25%, transparent 0 50%) 0 0 / 4px 22px,
+      #1c2519;
+    animation: screenStatic 0.24s steps(1) infinite;
+  }
+  /* The picture opens from a line and collapses back into one. */
+  .boardScreen[data-screen="on"] .boardScreenView {
+    animation: screenOn 0.3s steps(5) both;
+  }
+  .boardScreen[data-screen="off"] .boardScreenView {
+    animation: screenOff 0.3s steps(5) both;
+  }
+  .motion-enabled .boardStage {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+  .boardView {
+    container-type: size;
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    perspective: 2400px;
+  }
+  .boardPlane {
+    --w: min(94cqw, 185cqh);
+    --cell: calc(var(--w) / var(--cols));
+    --t: calc(var(--cell) * 0.34);
+    --tilt: 36deg;
+    --rz: 0deg;
+    --zoom: 1;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+    grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
+    width: var(--w);
+    aspect-ratio: 42 / 26;
+    border: 2px solid var(--ink-4);
+    background:
+      radial-gradient(circle, rgba(250, 249, 245, 0.13) 0.9px, transparent 1.3px) 0 0 / var(--cell) var(--cell),
+      var(--bg-raised);
+    transform-style: preserve-3d;
+    transform: translateY(calc(var(--cell) * -1.2)) rotateX(var(--tilt)) rotateZ(var(--rz)) scale(var(--zoom));
+  }
+  /* The board's thickness, hanging under its front and right edges. */
+  .boardEdge {
+    display: block;
+    position: absolute;
+    border: 1px solid var(--ink-4);
+    background:
+      linear-gradient(var(--accent-deep), var(--accent-deep)) 0 50% / 100% 1px no-repeat,
+      #0b0b0a;
+  }
+  .boardEdgeFront {
+    left: -2px;
+    top: 100%;
+    width: calc(100% + 4px);
+    height: calc(var(--cell) * 0.6);
+    transform-origin: top;
+    transform: rotateX(-90deg);
+  }
+  .boardEdgeRight {
+    left: 100%;
+    top: -2px;
+    width: calc(var(--cell) * 0.6);
+    height: calc(100% + 4px);
+    background:
+      linear-gradient(90deg, var(--accent-deep), var(--accent-deep)) 50% 0 / 1px 100% no-repeat,
+      #070707;
+    transform-origin: left;
+    transform: rotateY(90deg);
+  }
+  .boardZones,
+  .boardZone,
+  .boardChips {
+    display: contents;
+  }
+
+  /* Silkscreen: the zone outlines, their names set into the top rule. */
+  .boardFrame {
+    position: relative;
+    margin: 0;
+    border: 1px solid rgba(250, 249, 245, 0.2);
+    pointer-events: none;
+    transform: translateZ(0.2px);
+  }
+  .boardFrame span {
+    position: absolute;
+    top: 0;
+    left: calc(var(--cell) * 0.6);
+    padding: 0 calc(var(--cell) * 0.25);
+    background: var(--bg-raised);
+    font-size: calc(var(--cell) * 0.5);
+    transform: translateY(-55%);
+    white-space: nowrap;
+  }
+  .boardFrame.is-work {
+    margin: 0;
+    border: 3px double rgba(250, 249, 245, 0.28);
+  }
+  .boardFrame.is-work span {
+    font-size: calc(var(--cell) * 0.62);
+    color: var(--ink-2);
+  }
+
+  /* Traces: dotted silkscreen until both ends seat, then copper. */
+  .boardTraces {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    transform: translateZ(0.3px);
+  }
+  .boardTrace {
+    fill: none;
+    stroke: var(--accent-deep);
+    stroke-width: 1.6;
+    transition: stroke 0.2s steps(2);
+  }
+  .board.is-building .boardTrace:not(.is-on) {
+    stroke: var(--ink-4);
+    stroke-dasharray: 1.6 2.4;
+  }
+  .boardTrace.is-hot {
+    stroke: var(--accent);
+    stroke-width: 2.4;
+  }
+  .boardVia {
+    fill: var(--bg-raised);
+    stroke: var(--ink-3);
+    stroke-width: 0.8;
+  }
+  .boardPacket rect {
+    fill: var(--accent);
+  }
+  .boardPacket:not(.is-on) {
+    display: none;
+  }
+
+  /* A chip: a socket on the board, and over it a package that drops in. */
+  .boardChip {
+    --lift: 0;
+    position: relative;
+    display: block;
+    padding: 0;
+    border: 0;
+    transform-style: preserve-3d;
+    transform: translateZ(0.4px);
+  }
+  .boardChip::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border: 1px dashed var(--ink-4);
+  }
+  .chipRef {
+    display: block;
+    position: absolute;
+    left: 0;
+    bottom: 100%;
+    margin-bottom: calc(var(--cell) * 0.3);
+    font: 500 calc(var(--cell) * 0.36) / 1 var(--mono);
+    letter-spacing: 0.04em;
+    color: var(--ink-4);
+  }
+  .chipBody {
+    display: block;
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transform: translateZ(calc(var(--lift) * var(--cell) * 8));
+    transition: transform 0.16s steps(2);
+  }
+  .chipPins {
+    display: block;
+    position: absolute;
+    top: calc(var(--cell) * -0.24);
+    bottom: calc(var(--cell) * -0.24);
+    left: calc(var(--cell) * 0.32);
+    right: calc(var(--cell) * 0.32);
+    background: repeating-linear-gradient(
+      to right,
+      var(--ink-3) 0 calc(var(--cell) * 0.2),
+      transparent 0 calc(var(--cell) * 0.5)
+    );
+  }
+  .chipTop {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border: 1px solid #34332f;
+    background: #0f0f0e;
+    transform: translateZ(var(--t));
+  }
+  /* The pin-1 mark. */
+  .chipTop::before {
+    content: "";
+    position: absolute;
+    top: calc(var(--cell) * 0.2);
+    left: calc(var(--cell) * 0.2);
+    width: calc(var(--cell) * 0.2);
+    height: calc(var(--cell) * 0.2);
+    background: var(--ink-4);
+  }
+  .boardChip b {
+    font-size: calc(var(--cell) * 0.66);
+    line-height: 1;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .chipFront,
+  .chipRight {
+    display: block;
+    position: absolute;
+  }
+  .chipFront {
+    left: 0;
+    top: 100%;
+    width: 100%;
+    height: var(--t);
+    background: #070707;
+    transform-origin: top;
+    transform: rotateX(90deg);
+  }
+  .chipRight {
+    left: 100%;
+    top: 0;
+    width: var(--t);
+    height: 100%;
+    background: #040404;
+    transform-origin: left;
+    transform: rotateY(-90deg);
+  }
+  .chipNote {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .boardZone[data-work="both"] .chipTop {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+  .boardZone[data-work="both"] .boardChip b {
+    padding: 0;
+    background: none;
+  }
+  /* Waiting for its turn the package is not there; falling, it is dark. */
+  .board.is-building .boardChip:not(.is-falling, .is-seated) .chipBody {
+    visibility: hidden;
+  }
+  .board.is-building .boardChip:not(.is-seated) b {
+    color: var(--ink-4);
+  }
+  .boardChip.is-seated .chipTop {
+    animation: chipSeat 0.4s steps(3);
+  }
+  .boardChip.is-hot .chipBody {
+    transform: translateZ(calc(var(--cell) * 0.7));
+  }
+  .boardChip.is-hot .chipTop,
+  .boardChip.is-ping .chipTop {
+    border-color: var(--accent);
+  }
+  .boardChip.is-ping:not([data-chip="THREE.JS"]) b {
+    color: var(--accent);
+  }
+
+  /* POST log under the board: the latest lines, and the note of the chip
+     under the cursor. */
+  .boardLog {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    gap: 0 28px;
+    height: calc(3 * 18px + 16px);
+    padding: 8px 12px;
+    border-top: 2px solid var(--line);
+    font: 400 12px/18px var(--mono);
+    color: var(--ink-3);
+  }
+  .boardLogLines {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    list-style: none;
+    white-space: pre;
+  }
+  .boardLogLines em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .boardLogLines [data-log-ready] {
+    color: var(--ink);
+  }
+  .board.is-building .boardLogLines :is([data-log-line], [data-log-ready]):not(.is-on) {
+    display: none;
+  }
+  .boardLogNote {
+    align-self: end;
+    margin: 0;
+    color: var(--ink);
+  }
+}
+@keyframes chipSeat {
+  0%,
+  40% {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+}
+@keyframes screenStatic {
+  25% {
+    background-position: 0 17px, 3px 0, 5px 7px, 2px 11px, 0 0;
+  }
+  50% {
+    background-position: 0 -11px, 0 3px, 0 0, 1px 5px, 0 0;
+  }
+  75% {
+    background-position: 0 29px, 3px 3px, 5px 0, 3px 17px, 0 0;
+  }
+}
+@keyframes screenOn {
+  from {
+    transform: scale(1, 0.02);
+    filter: brightness(3);
+  }
+  60% {
+    transform: scale(1, 1);
+    filter: brightness(1.6);
+  }
+}
+@keyframes screenOff {
+  45% {
+    transform: scale(1, 0.02);
+    filter: brightness(2.5);
+  }
+  to {
+    transform: scale(0, 0.02);
+    filter: brightness(3);
+    visibility: hidden;
+  }
 }
 
 /* 09 Request terminal ---------------------------------------------------- */
@@ -3503,12 +3716,12 @@ img {
   }
   /* Too narrow for the pinned heads' third column: the lead drops under
      the headline. */
-  :is(.viewerPin, .ringPin) .blockTitle,
-  :is(.viewerPin, .ringPin) .blockLead {
+  :is(.viewerPin, .ringPin, .boardPin) .blockTitle,
+  :is(.viewerPin, .ringPin, .boardPin) .blockLead {
     grid-column: 2 / -1;
     grid-row: auto;
   }
-  :is(.viewerPin, .ringPin) .blockNum {
+  :is(.viewerPin, .ringPin, .boardPin) .blockNum {
     grid-row: 1 / span 3;
   }
   .passport {
@@ -3540,8 +3753,8 @@ img {
   .heroCopy {
     margin-bottom: 36px;
   }
-  .roomStage {
-    --room-h: min(78vw, 640px);
+  .island {
+    --island-h: min(78vw, 640px);
   }
   .heroLead {
     max-width: 40ch;
@@ -3728,8 +3941,16 @@ img {
   .figCaption span:nth-child(2) {
     display: none;
   }
-  .roomStage {
-    --room-h: min(92vw, 600px);
+  .island {
+    --island-h: min(100vw, 560px);
+  }
+  .islandTitle {
+    gap: 6px;
+    padding: 3px 5px 2px;
+    font-size: 10px;
+  }
+  .islandTitle b {
+    font-size: 12px;
   }
   .tickerLead {
     display: none;
@@ -3753,14 +3974,14 @@ img {
     border-bottom: 0;
   }
   .blockHead,
-  :is(.viewerPin, .ringPin) .blockHead {
+  :is(.viewerPin, .ringPin, .boardPin) .blockHead {
     grid-template-columns: minmax(0, 1fr);
   }
   .blockHead > *,
   .blockHead > .blockNum,
   .blockHead > .blockLabel,
   .blockHead > .blockAside,
-  :is(.viewerPin, .ringPin) :is(.blockNum, .blockLabel, .blockTitle, .blockLead) {
+  :is(.viewerPin, .ringPin, .boardPin) :is(.blockNum, .blockLabel, .blockTitle, .blockLead) {
     grid-column: 1;
     grid-row: auto;
   }
@@ -3769,7 +3990,7 @@ img {
     padding-left: 0;
   }
   .blockNum .pixelText,
-  :is(.viewerPin, .ringPin) .blockNum .pixelText {
+  :is(.viewerPin, .ringPin, .boardPin) .blockNum .pixelText {
     height: 64px;
   }
   .blockLead {
@@ -3850,12 +4071,6 @@ img {
   }
   .layersIso {
     --s: min(54cqw, 210px);
-  }
-  .orbitStage {
-    height: min(118vw, 480px);
-  }
-  .orbitTag {
-    font-size: 13px;
   }
   /* The viewer loses the pin: the captures lie flat in a native, snapping
      row above the full channel list. */
@@ -3991,10 +4206,7 @@ img {
   .mascot {
     display: none;
   }
-  .roomStatic {
+  .islandStatic {
     display: block;
-  }
-  .roomShadow {
-    opacity: 0.5;
   }
 }

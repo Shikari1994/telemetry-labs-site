@@ -6,11 +6,13 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
 import { homeTree } from "@/data/home";
 import { paintBar } from "@/lib/ascii";
+import { island } from "@/lib/hero/state";
 import { onHeroCue } from "@/lib/motion/heroCue";
 import { SIGNAL_LINE } from "@/lib/motion/bus";
 import { finale } from "@/lib/motion/finale";
 import { setLenis } from "@/lib/motion/lenis";
 import { scrambleElement } from "@/lib/motion/scramble";
+import { showcase } from "@/lib/showcase/state";
 
 type ReadyWindow = Window & { __telemetryReady?: boolean };
 
@@ -45,6 +47,15 @@ const RING_HOLD = 0.2;
 /* Ring: extra scroll (in screens) the last screen holds before the pin ends. */
 const RING_TAIL = 0.5;
 
+/* Stack board: pinned scroll (in screens); the share where chips start and
+   stop seating, and where the board reports ready; how many chips' turns
+   one drop lasts, so the next chip is already falling as one seats. */
+const BOARD_TRAVEL = 2.4;
+const BOARD_SEAT_FROM = 0.06;
+const BOARD_SEAT_TO = 0.82;
+const BOARD_READY = 0.86;
+const BOARD_OVERLAP = 2.4;
+
 export function MotionProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -77,6 +88,7 @@ export function MotionProvider({ children }: { children: ReactNode }) {
     let finaleCleanup: (() => void) | null = null;
     const viewerMedia = gsap.matchMedia();
     const ringMedia = gsap.matchMedia();
+    const boardMedia = gsap.matchMedia();
 
     const ctx = gsap.context(() => {
       /* Header ------------------------------------------------------------ */
@@ -92,7 +104,7 @@ export function MotionProvider({ children }: { children: ReactNode }) {
       }
 
       /* Hero: an opening in two beats paced by the mascot intro (the wordmark
-         and copy build as it pulls back, the room lights up as it lands),
+         and copy build as it pulls back, the island builds as it lands),
          then one handoff scrub. */
       const hero = document.querySelector<HTMLElement>("[data-hero-section]");
       if (hero) {
@@ -100,14 +112,9 @@ export function MotionProvider({ children }: { children: ReactNode }) {
         const lines = gsap.utils.toArray<HTMLElement>("[data-hero-line]", hero);
         const readings = gsap.utils.toArray<HTMLElement>("[data-scramble-value]", hero);
         const figure = hero.querySelector<HTMLElement>("[data-hero-object]");
-        const room = hero.querySelector<HTMLElement>("[data-room]");
-        const dark = hero.querySelector<HTMLElement>("[data-room-dark]");
-        const pivot = hero.querySelector<HTMLElement>("[data-room-pivot]");
-        const posters = gsap.utils.toArray<HTMLElement>("[data-room-poster]", hero);
 
         gsap.set(pixels, { autoAlpha: 0 });
         gsap.set(lines, wipeY.from);
-        gsap.set(posters, wipeY.from);
 
         let worldPlayed = false;
         let lightsPlayed = false;
@@ -119,20 +126,14 @@ export function MotionProvider({ children }: { children: ReactNode }) {
             .to(pixels, { autoAlpha: 1, duration: 0.01, stagger: { amount: 0.85, from: "random" } }, 0)
             .to(lines, { ...wipeY.to, duration: 0.5, ease: "steps(6)", stagger: 0.09, clearProps: "clipPath" }, 0.45);
         };
-        // The lamp switches on, the room lights stutter, then each poster
-        // unrolls down its wall.
+        // The board assembles out of the socket the robot landed on; the
+        // chips project their works once it stands (HeroIsland).
         const playLights = () => {
           if (lightsPlayed) return;
           lightsPlayed = true;
           gsap
             .timeline()
-            .add(() => room?.setAttribute("data-lights", "on"), 0)
-            .set(dark, { opacity: 0.55 }, 0)
-            .set(dark, { opacity: 0.94 }, 0.07)
-            .set(dark, { opacity: 0.3 }, 0.2)
-            .set(dark, { opacity: 0.8 }, 0.26)
-            .set(dark, { opacity: 0 }, 0.38)
-            .to(posters, { ...wipeY.to, duration: 0.5, ease: "steps(8)", stagger: 0.18, clearProps: "clipPath" }, 0.5)
+            .to(island, { build: 1, duration: 2.1, ease: "none" }, 0)
             .add(() => readings.forEach((node) => scrambleElement(node, 700)), 0.5);
         };
 
@@ -166,8 +167,8 @@ export function MotionProvider({ children }: { children: ReactNode }) {
           .timeline({ scrollTrigger: { trigger: hero, start: "12% top", end: "bottom top", scrub: 0.6 } })
           .to(pixels, { y: () => -gsap.utils.random(1, 7), autoAlpha: 0, ease: "none", stagger: { amount: 0.7, from: "random" } }, 0)
           .to(figure, { yPercent: 8, ease: "none" }, 0)
-          // The room camera pitches down as the page moves on.
-          .to(pivot, { "--dolly": 1, ease: "none" }, 0);
+          // The island camera pitches down as the page moves on.
+          .to(island, { dolly: 1, ease: "none" }, 0);
       }
 
       /* Section openers: label decodes, headline wipes, lead follows -------- */
@@ -459,6 +460,9 @@ export function MotionProvider({ children }: { children: ReactNode }) {
           const k = Math.floor(position);
           const f = gsap.utils.clamp(0, 1, (position - k - RING_HOLD) / (1 - 2 * RING_HOLD));
           const angle = (k + f * f * (3 - 2 * f)) * step;
+          // The WebGL screen (ShowcaseScene) takes the same beat.
+          showcase.screen = Math.min(k, cards.length - 1);
+          showcase.turn = k < cards.length - 1 ? f : 0;
           spinner?.style.setProperty("--spin", `${(-angle).toFixed(2)}deg`);
           dial?.style.setProperty("--spin", `${(-angle).toFixed(2)}deg`);
           cards.forEach((card, index) => {
@@ -480,7 +484,8 @@ export function MotionProvider({ children }: { children: ReactNode }) {
           gsap
             .timeline({ scrollTrigger: { trigger: stage, start: "top 82%", toggleActions: PLAY_ONCE } })
             .fromTo(stage, wipeY.from, { ...wipeY.to, duration: 0.6, ease: "steps(10)", clearProps: "clipPath" }, 0)
-            .fromTo(spinner, { "--intro": "-110deg" }, { "--intro": "0deg", duration: 1.5, ease: "power3.out" }, 0);
+            .fromTo(spinner, { "--intro": "-110deg" }, { "--intro": "0deg", duration: 1.5, ease: "power3.out" }, 0)
+            .fromTo(showcase, { intro: 0 }, { intro: 1, duration: 1.8, ease: "none" }, 0);
         }
 
         // The scrub runs a little past the last screen so it holds in front
@@ -549,6 +554,112 @@ export function MotionProvider({ children }: { children: ReactNode }) {
             iso.style.setProperty("--rz", `${(32 + state.turn * 26).toFixed(2)}deg`);
             light(Math.min(slabs.length, Math.floor(state.explode * (slabs.length + 0.99))));
           },
+        });
+      }
+
+      /* 06 Stack board: pinned on desktop (where it runs behind the mascot's
+         glass, components/mascot), one scrub tilts the board in and
+         seats the chips in the data's order, rig to screens, then the site;
+         a trace lights once both its chips are in, the POST log prints each
+         chip, and the board reports ready for the packets (StackBoard).
+         Phones get the list by zone, row by row. ------------------------- */
+      const board = document.querySelector<HTMLElement>("[data-board]");
+      if (board) {
+        const pin = board.querySelector<HTMLElement>("[data-board-pin]");
+        const plane = board.querySelector<HTMLElement>("[data-board-plane]");
+        const win = board.querySelector<HTMLElement>("[data-board-screen]");
+        const chips = gsap.utils.toArray<HTMLElement>("[data-chip]", board);
+        const paths = gsap.utils.toArray<SVGPathElement>("[data-trace]", board);
+        const lines = gsap.utils.toArray<HTMLElement>("[data-log-line]", board);
+        const readyLine = board.querySelector<HTMLElement>("[data-log-ready]");
+        const index = new Map(chips.map((chip, i) => [chip.dataset.chip, i]));
+        const slot = (BOARD_SEAT_TO - BOARD_SEAT_FROM) / (chips.length - 1 + BOARD_OVERLAP);
+        const drops = chips.map(() => -1);
+
+        if (win) {
+          gsap.fromTo(win, wipeY.from, {
+            ...wipeY.to,
+            duration: 0.6,
+            ease: "steps(10)",
+            clearProps: "clipPath",
+            scrollTrigger: { trigger: win, start: "top 82%", toggleActions: PLAY_ONCE },
+          });
+        }
+
+        const seated = (label?: string) => drops[index.get(label) ?? -1] === 1;
+        const assemble = (p: number) => {
+          chips.forEach((chip, i) => {
+            const f = gsap.utils.clamp(0, 1, (p - BOARD_SEAT_FROM - i * slot) / (slot * BOARD_OVERLAP));
+            // Stepped, and falling faster as it goes.
+            const drop = f >= 1 ? 1 : Math.floor(f * 8) / 8;
+            if (drop === drops[i]) return;
+            drops[i] = drop;
+            chip.style.setProperty("--lift", (1 - drop * drop).toFixed(3));
+            chip.classList.toggle("is-falling", drop > 0 && drop < 1);
+            chip.classList.toggle("is-seated", drop === 1);
+            lines[i]?.classList.toggle("is-on", drop === 1);
+          });
+          paths.forEach((path) => path.classList.toggle("is-on", seated(path.dataset.from) && seated(path.dataset.to)));
+          const ready = p >= BOARD_READY;
+          board.classList.toggle("is-ready", ready);
+          readyLine?.classList.toggle("is-on", ready);
+          // The board swings round and settles as it fills.
+          const k = gsap.utils.clamp(0, 1, p / BOARD_SEAT_TO);
+          const e = k * k * (3 - 2 * k);
+          plane?.style.setProperty("--tilt", `${(46 - 24 * e).toFixed(2)}deg`);
+          plane?.style.setProperty("--rz", `${(-12 + 12 * e).toFixed(2)}deg`);
+          plane?.style.setProperty("--zoom", (0.86 + 0.14 * e).toFixed(3));
+        };
+
+        boardMedia.add("(min-width: 761px)", () => {
+          board.classList.add("is-building");
+          const proxy = { p: 0 };
+          assemble(0);
+          const tween = gsap.to(proxy, {
+            p: 1,
+            ease: "none",
+            onUpdate: () => assemble(proxy.p),
+            scrollTrigger: {
+              trigger: pin,
+              start: () => `top top+=${headerHeight() + 12}`,
+              end: () => `+=${Math.round(window.innerHeight * BOARD_TRAVEL)}`,
+              pin,
+              scrub: 0.7,
+              anticipatePin: 1,
+              invalidateOnRefresh: true,
+            },
+          });
+          return () => {
+            tween.scrollTrigger?.kill(true);
+            tween.kill();
+            board.classList.remove("is-building", "is-ready");
+            readyLine?.classList.remove("is-on");
+            chips.forEach((chip, i) => {
+              chip.style.removeProperty("--lift");
+              chip.classList.remove("is-falling", "is-seated");
+              lines[i]?.classList.remove("is-on");
+              drops[i] = -1;
+            });
+            paths.forEach((path) => path.classList.remove("is-on"));
+            ["--tilt", "--rz", "--zoom"].forEach((name) => plane?.style.removeProperty(name));
+          };
+        });
+        boardMedia.add("(max-width: 760px)", () => {
+          const tweens = gsap.utils.toArray<HTMLElement>(".boardZone", board).map((zone) =>
+            gsap.fromTo(zone.querySelectorAll(".boardFrame, .boardChip"), wipeX.from, {
+              ...wipeX.to,
+              duration: 0.35,
+              ease: "steps(7)",
+              stagger: 0.07,
+              clearProps: "clipPath",
+              scrollTrigger: { trigger: zone, start: "top 86%", toggleActions: PLAY_ONCE },
+            }),
+          );
+          return () =>
+            tweens.forEach((tween) => {
+              tween.scrollTrigger?.kill();
+              tween.kill();
+            });
         });
       }
 
@@ -688,6 +799,7 @@ export function MotionProvider({ children }: { children: ReactNode }) {
       gsap.ticker.remove(raf);
       viewerMedia.revert();
       ringMedia.revert();
+      boardMedia.revert();
       ctx.revert();
       ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
       root.classList.remove("motion-enabled");

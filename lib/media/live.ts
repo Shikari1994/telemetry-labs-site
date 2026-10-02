@@ -22,8 +22,6 @@ const CREAM = [250 / 250, 249 / 250, 245 / 250];
 /** Seconds: a dissolve, and how long each still of a reel holds. */
 const DISSOLVE = 0.45;
 const HOLD = 1.5;
-/** Widest the feed is drawn, in canvas px. */
-const MAX_WIDTH = 420;
 
 function grain(src: Uint8ClampedArray, dst: Uint8ClampedArray, width: number) {
   for (let i = 0, p = 0; i < src.length; i += 4, p += 1) {
@@ -76,8 +74,9 @@ export function createLiveFeed(
   const sctx = scratch.getContext("2d", { willReadFrequently: true });
   if (!live || !ctx || !sctx) return null;
 
-  const box = canvas.getBoundingClientRect();
-  const width = Math.max(64, Math.min(MAX_WIDTH, Math.round(box.width * Math.min(2, window.devicePixelRatio || 1))));
+  // At the captures' own size, like the still under it, so going live never
+  // costs detail; the browser scales it down to the slot as it does the still.
+  const width = asset.width;
   const height = Math.round((width * asset.height) / asset.width);
   canvas.width = scratch.width = width;
   canvas.height = scratch.height = height;

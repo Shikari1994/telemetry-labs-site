@@ -3,6 +3,7 @@ import { AlphaVideo } from "@/components/media/AlphaVideo";
 import { CasePassport } from "@/components/sections/CasePassport";
 import { SectionHead } from "@/components/sections/SectionHead";
 import { SectionOffer } from "@/components/sections/SectionOffer";
+import { ShowcaseScene } from "@/components/sections/ShowcaseScene";
 import { SITE_URL, siteShowcase } from "@/data/home";
 
 const STEP = 360 / siteShowcase.length;
@@ -13,7 +14,10 @@ const total = String(siteShowcase.length).padStart(2, "0");
  * then come its features: the geo-tn.com captures hung on one 3D ring, every
  * one in its own colours. Screens turned away sink into the dark (--lit,
  * written by the scrub); the one in front takes its line of copy. Scrolling
- * turns the ring a screen at a time (MotionProvider pins it on desktop). The
+ * turns the ring a screen at a time (MotionProvider pins it on desktop). On
+ * desktop with motion a WebGL screen (ShowcaseScene) takes the stage over:
+ * the capture in front as a slab of voxels that tumbles to the next one on
+ * the same scrub; the ring stays laid out under it for the mascot's aim. The
  * markup ships the ring at rest, so reduced motion reads the same.
  */
 export function CaseSite() {
@@ -35,6 +39,7 @@ export function CaseSite() {
         </SectionHead>
 
         <div className="ringStage" data-ring-stage>
+          <ShowcaseScene />
           <div className="ringCam" data-ring-cam>
             <div className="ringFloor" aria-hidden="true">
               <i data-ring-dial />

@@ -59,8 +59,8 @@ The visual/motion reference is ChainGPT Labs (`https://labs.chaingpt.org/`) as d
   `components/media/AlphaVideo.tsx`. Sections reference an asset by id; never
   hardcode a media path in a section. An asset's `live` feed (a recording of
   the work or a reel of its captures) plays only where a section passes
-  `live` (the hero room posters, under the cursor), through the captures'
-  own grain (`lib/media/live.ts`).
+  `live` (the current work's screen over the hero island), through the
+  captures' own grain (`lib/media/live.ts`).
 - The footer is the end of the visit: an exit menu, then the last screen,
   which powers off as the page runs out (shutdown log, the mascot asleep on
   its dock, CRT collapse, SYSTEM HALTED) and reboots on the way back up.
@@ -69,13 +69,26 @@ The visual/motion reference is ChainGPT Labs (`https://labs.chaingpt.org/`) as d
   Do not append a new token layer; edit the existing block.
 - When a pass replaces a section, delete that section's CSS in the same change.
 - Realtime WebGL is limited to the footer scene, the homepage mascot
-  overlay (`components/mascot`, route in `lib/mascot/route.ts`) and the
-  three transits (`lib/transit`, approved by the owner). The voxel
+  overlay (`components/mascot`, route in `lib/mascot/route.ts`), the
+  three transits (`lib/transit`, approved by the owner), the 03 showcase
+  screen (`components/sections/ShowcaseScene.tsx`, `lib/showcase`, approved
+  by the owner) and the hero island (`components/sections/HeroIsland.tsx`,
+  `lib/hero`, approved by the owner): a floating chunk of the transits'
+  voxel board, built out of the socket the mascot lands on, with one chip per
+  work projecting its capture as a voxel hologram; the work's real screen
+  (a DOM link, live while current) is laid over the slab from the scene's
+  camera. The voxel
   module models (`components/sections/ModuleModels.tsx`, `lib/modules`) are
   not rendered on the portfolio. The works are shown as 3D scenes built
-  from CSS 3D transforms (ring, layer stack, flip-stack viewer) and one Canvas 2D
-  orbit (`components/sections/TechOrbit.tsx`); no WebGL there. Anything
-  else is poster or alpha video.
+  from CSS 3D transforms (ring, layer stack, flip-stack viewer, and the 06
+  stack board: one chip per technology on a circuit board, seated on one
+  pinned scrub, traces and packets in SVG; `components/sections/StackBoard.tsx`,
+  layout in `lib/stack/board.ts`). The one exception is the 03
+  ring on desktop with motion: its front capture is a WebGL slab of voxels
+  that tumbles to the next capture in a wave, on the ring's own scrub
+  (published in `lib/showcase/state.ts`); the CSS ring stays laid out under
+  it for the mascot's aim and is the scene on phones, under reduced motion
+  and without WebGL. Anything else is poster or alpha video.
 - Works are presented as a visual, technological showcase: one short line
   per beat. No formulas, calculations, line counts or spec tables.
 - Every case tells itself the same way: the head's lead says what the work
