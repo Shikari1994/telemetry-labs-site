@@ -8,16 +8,17 @@ function headerOffset() {
 }
 
 /**
- * Scroll target for a tree entry. A channel of the pinned screens viewer does
- * not move down the page, so its index is mapped onto the viewer's pinned
- * scroll range instead of read from the layout.
+ * Scroll target for a tree entry. An entry inside a pinned scene (a channel
+ * of the 05 viewer, a work on the 02 deck) does not move down the page, so
+ * its beat (`data-pin-index`) is mapped onto the scene's pinned scroll range
+ * (`data-pin-travel` beats long) instead of read from the layout.
  */
 function targetY(el: HTMLElement) {
-  const viewer = el.closest<HTMLElement>("[data-viewer]");
-  const index = Number(el.dataset.viewerIndex);
-  const travel = Number(viewer?.dataset.viewerTravel);
-  if (viewer && el !== viewer && Number.isFinite(index) && travel > 0) {
-    const trigger = ScrollTrigger.getAll().find((st) => st.pin && viewer.contains(st.pin));
+  const scene = el.closest<HTMLElement>("[data-pin-travel]");
+  const index = Number(el.dataset.pinIndex);
+  const travel = Number(scene?.dataset.pinTravel);
+  if (scene && el !== scene && Number.isFinite(index) && travel > 0) {
+    const trigger = ScrollTrigger.getAll().find((st) => st.pin && scene.contains(st.pin));
     if (trigger) return trigger.start + (trigger.end - trigger.start) * (index / travel) + 2;
   }
   return el.getBoundingClientRect().top + window.scrollY - headerOffset();

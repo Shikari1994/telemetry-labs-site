@@ -296,8 +296,8 @@ export function Mascot() {
     const introFallback = window.setTimeout(playIntro, 4200);
 
     /* Works' screens: a click is a dive (pointing is the hero station's aim). */
-    const posters = Array.from(document.querySelectorAll<HTMLAnchorElement>("[data-island-work]"));
-    let dive: { el: HTMLAnchorElement; t: number; from: Placement & { visible: true }; jumped: boolean } | null = null;
+    const posters = Array.from(document.querySelectorAll<HTMLElement>("[data-island-work]"));
+    let dive: { el: HTMLElement; t: number; from: Placement & { visible: true }; jumped: boolean } | null = null;
     let lastPlace: Placement = { visible: false };
     const posterListeners = posters.map((el) => {
       const click = (event: MouseEvent) => {

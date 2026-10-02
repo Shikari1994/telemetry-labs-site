@@ -65,8 +65,9 @@ The visual/motion reference is ChainGPT Labs (`https://labs.chaingpt.org/`) as d
 - Inside the works' sections the mascot does not stand in front of the
   content pointing (the owner found that a fly in the face): it plays a
   part in the scene or hides behind it, an `act` per station
-  (`lib/mascot/acts.ts`): 02 peeks over the cartridges and ducks from the
-  cursor, 03 plays hide-and-seek round the ring's WebGL screen (its outline
+  (`lib/mascot/acts.ts`): 02 stamps the works' cartridges into the deck,
+  a step per landing, and pops up out of the first free slot (the deck's
+  scrub, `lib/deck/state.ts`), 03 plays hide-and-seek round the ring's WebGL screen (its outline
   published in `lib/showcase/state.ts`), 04 climbs the layer stack as it
   lights, 05 turns the captures over on the viewer's scrub
   (`lib/viewer/state.ts`), 07 peeks over the form and climbs onto it when
@@ -107,7 +108,10 @@ The visual/motion reference is ChainGPT Labs (`https://labs.chaingpt.org/`) as d
   camera. The voxel
   module models (`components/sections/ModuleModels.tsx`, `lib/modules`) are
   not rendered on the portfolio. The works are shown as 3D scenes built
-  from CSS 3D transforms (ring, layer stack, flip-stack viewer, and the 06
+  from CSS 3D transforms (the 02 cartridge deck: the works as cartridges
+  stamped into its slots, a screen booting each and the three directions
+  as its channels, `components/sections/Works.tsx`; ring, layer stack,
+  flip-stack viewer, and the 06
   stack board: one chip per technology on a circuit board, seated on one
   pinned scrub, traces and packets in SVG; `components/sections/StackBoard.tsx`,
   layout in `lib/stack/board.ts`). The one exception is the 03
@@ -130,7 +134,7 @@ The visual/motion reference is ChainGPT Labs (`https://labs.chaingpt.org/`) as d
 - Hero is typography-first and uses one central media object.
 - Motion must read as coordinated choreography, not independent fade-ins.
 - Main reveals use clip/transform or scrubbed state transitions; generic fade-only motion is not acceptable.
-- Long narrative stages (03 ring, 05 viewer, 06 board) pin on every width:
+- Long narrative stages (02 deck, 03 ring, 05 viewer, 06 board) pin on every width:
   desktop pins the section, phones only the scene under its head, in a phone
   layout (the 06 camera rides close over the board there). Reduced motion is
   the unpinned fallback.

@@ -64,7 +64,8 @@ export function SectionRail() {
 
       let sub: HTMLElement | null = null;
       for (const candidate of sections[active].subs) {
-        if (!candidate.el) continue;
+        // In a pinned scene the subs share one spot; only the shown one counts.
+        if (!candidate.el || getComputedStyle(candidate.el).visibility === "hidden") continue;
         const rect = candidate.el.getBoundingClientRect();
         if (rect.top <= focalY && rect.left <= focalX) sub = candidate.link;
       }

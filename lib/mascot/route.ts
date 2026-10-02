@@ -20,9 +20,9 @@
  *
  * Inside the works' own sections it does not stand in front of the content
  * pointing: it plays a part in it or hides behind it (an `act`,
- * lib/mascot/acts.ts): it peeks over the cartridges and ducks from the
- * cursor, plays hide-and-seek round the ring's screen, climbs the layer
- * stack as it lights, and turns the viewer's captures over.
+ * lib/mascot/acts.ts): it stamps the cartridges into the deck, plays
+ * hide-and-seek round the ring's screen, climbs the layer stack as it
+ * lights, and turns the viewer's captures over.
  *
  * At a screen station it is the section's scene itself: a close-up whose
  * glass covers the station's element, showing the page through it.
@@ -163,16 +163,19 @@ const desktop: RouteDef = {
       aim: { select: "[data-island-work]", active: "[data-island-work][data-current]" },
     },
     {
-      // Hides behind the cartridges and peeks over one, ducking from the cursor.
+      // Stamps the works' cartridges into the deck, one jump per step, then
+      // pops up out of the first free slot (seen from the deck's camera).
       id: "programs",
-      select: ".bay",
-      act: "shy",
-      pose: "peek",
+      select: "[data-deck-view]",
+      act: "load",
+      pose: "sit",
       ax: 0.5,
-      scale: 6,
-      enter: ["top 100%", "top 58%"],
-      // It stays while a cartridge is still up (on a phone they stack).
-      leave: ["bottom 52%", "bottom 26%"],
+      scale: 5,
+      tilt: 0.4,
+      enter: ["top 75%", "top 25%"],
+      enterOn: "[data-deck]",
+      leave: ["top bottom+=60", "top 70%"],
+      leaveOn: "#works + [data-seam]",
     },
     {
       // Hide-and-seek round the ring's front screen, a side per capture.
@@ -268,14 +271,15 @@ const desktop: RouteDef = {
 
 const [hero, programs, ring, monitor, screens, stack, request, footer] = desktop.stations;
 
-/* Phones: the same route, smaller. The ring, the viewer and the board pin
+/* Phones: the same route, smaller. The deck, the ring, the viewer and the board pin
    only their scene under the head there, so the mascot is glued to the same
    elements and comes along; it flies in as the scene comes up under the
    head (a phone's head is a screen tall on its own). */
 const mobile: RouteDef = {
   stations: [
     hero,
-    { ...programs, scale: 4 },
+    // The channels follow the pinned deck there: it leaves as they come up.
+    { ...programs, scale: 4, enter: ["top 100%", "top 55%"], enterOn: "[data-deck-scene]", leaveOn: "[data-deck-channels]" },
     { ...ring, scale: 4.5, enter: ["top 100%", "top 55%"], enterOn: "[data-ring-scene]" },
     { ...monitor, scale: 2.6, leave: ["top 0%", "top -20%"] },
     { ...screens, scale: 3.6, enter: ["top 100%", "top 55%"], enterOn: "[data-viewer-scene]" },

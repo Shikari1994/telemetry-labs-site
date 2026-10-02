@@ -1,9 +1,9 @@
 import { clamp, easeInOut, mix } from "@/lib/mascot/math";
-import { HEAD_CENTER_Y, PEEK_DEPTH, PEEK_HIDE } from "@/lib/mascot/model";
+import { PEEK_DEPTH, PEEK_HIDE } from "@/lib/mascot/model";
 import { boxPoly, clipPoly, markAt, silhouette, type Point, type Poly } from "@/lib/mascot/occlude";
 import type { Hands } from "@/lib/mascot/rig";
 import type { Pose } from "@/lib/mascot/route";
-import { pace } from "@/lib/motion/pace";
+import { HOP, SEAT, STOMPS, STOMP_FROM, deck } from "@/lib/deck/state";
 import { showcase } from "@/lib/showcase/state";
 import { viewer } from "@/lib/viewer/state";
 
@@ -15,10 +15,10 @@ import { viewer } from "@/lib/viewer/state";
  * (`masks`, lib/mascot/occlude.ts). The director flies it in from its perch
  * onto the act's spot and back out (lib/mascot/director.ts).
  *
- * - shy (02): hides behind the cartridges and peeks over the top of one,
- *   hands on its edge; the one under the cursor or tapped, else the one most
- *   in view. Come near its head and it ducks, scurries along behind and pops
- *   up at the other end.
+ * - load (02): stamps the cartridges into the deck. It stands on one and
+ *   jumps on it, the cartridge going down a step each time it lands; when
+ *   it seats it jumps for joy and hops over to the next. After the last it
+ *   drops into the first free slot and pops up out of it, hands on its lip.
  * - seek (03): hide-and-seek round the ring's front screen. It looks out
  *   from behind one side edge, leaning out and holding on; as the ring turns
  *   it slips behind the screen and comes out on the other side with the next
@@ -33,7 +33,7 @@ import { viewer } from "@/lib/viewer/state";
  *   jumps back up and drops in behind the next one.
  */
 
-export type ActName = "shy" | "seek" | "lift" | "flip";
+export type ActName = "load" | "seek" | "lift" | "flip";
 
 /** What the visitor is doing, for acts that react to it. */
 export type Sense = {
@@ -71,94 +71,117 @@ const kilroy = (x: number, y: number, k: number): Hands => ({
   grip: true,
 });
 
-const area = (el: Element, height: number) => {
-  const box = el.getBoundingClientRect();
-  return Math.max(0, Math.min(box.bottom, height) - Math.max(box.top, 0)) * box.width;
-};
-
 /* 02 ------------------------------------------------------------------- */
 
-/** How long it stays down after a near miss, and how a duck and a rise take. */
-const DUCK_MS = 1300;
-const DUCK_SECONDS = 0.18;
-const RISE_SECONDS = 0.42;
-const SCURRY_SECONDS = 0.55;
-/** Where along a cartridge's top it peeks: one end or the other. */
-const ENDS = [0.8, 0.2] as const;
-/** The cursor this near its head (voxels) makes it duck. */
-const SHY_NEAR = 10;
-/** An interaction keeps its pick of cartridge this long. */
-const PICK_MS = 4000;
+/** Voxels across a cartridge's face: its width sets the robot's size. */
+const CART_VOXELS = 21;
+/** A stomp's and the joy jump's height, and the hop's arc between carts (voxels). */
+const STOMP_UP = 5;
+const JOY_UP = 9;
+const HOP_UP = 12;
+/** Phases of the last beat: the hop over the free slot, the drop into it,
+    a moment out of sight, then up to peek out of it. */
+const SLOT = { over: 0.4, drop: 0.6, hold: 0.78 } as const;
+/** Hands on a slot's lip: narrower than on a wide edge. */
+const LIP_HANDS = 7.5;
+/** Down to the bottom of any screen: what lies in front of a slot's lip. */
+const BELOW = 4000;
 
-function shy(root: HTMLElement, k: number): Act {
-  const carts = Array.from(root.querySelectorAll<HTMLElement>("[data-cart]"));
-  type Seat = { cart: HTMLElement; end: number };
-  let seat: Seat | null = null;
-  let from: Seat | null = null;
-  let end = 0;
-  let t = 1;
-  let depth = 0;
-  let duckUntil = 0;
-  let pickedAt = -Infinity;
-  let picked: HTMLElement | null = null;
-
-  const spot = ({ cart, end: at }: Seat) => {
-    const box = cart.getBoundingClientRect();
-    return { x: box.left + box.width * ENDS[at], top: box.top };
+function load(root: HTMLElement, cap: number): Act {
+  const carts = Array.from(root.querySelectorAll<HTMLElement>("[data-deck-cart]"));
+  const mouth = root.querySelector<HTMLElement>("[data-deck-mouth]");
+  const stand = (i: number) => {
+    const mark = carts[i]?.querySelector("[data-stand]");
+    return mark ? markAt(mark) : markAt(root);
   };
+  /* The robot is as big as the cartridge's face is wide on screen. */
+  const size = () => {
+    const corners = carts[0]?.querySelectorAll(".deckCartFront > [data-corner]");
+    if (!corners || corners.length < 2) return cap;
+    const a = markAt(corners[0]);
+    const b = markAt(corners[1]);
+    return Math.min(cap, Math.hypot(b.x - a.x, b.y - a.y) / CART_VOXELS);
+  };
+  const on = (p: Point, k: number, up = 0, hands: Hands | null = null): ActSpot => ({
+    x: p.x,
+    y: p.y - up * k,
+    scale: k,
+    pose: "sit",
+    fly: 0,
+    hands,
+    masks: [],
+  });
 
-  return (dt, { poke, target, now }) => {
-    const height = window.innerHeight;
-    const hot = target?.closest<HTMLElement>("[data-cart]");
-    if (hot && carts.includes(hot)) {
-      picked = hot;
-      pickedAt = now;
+  return () => {
+    const k = size();
+    const n = carts.length;
+    if (!n) return { ...markAt(root), scale: k, pose: "hover", fly: 0, masks: [] };
+    const at = clamp(deck.at, 0, n + 1);
+    const i = Math.min(n, Math.floor(at));
+    const f = i >= n ? Math.min(1, at - n) : at - i;
+
+    if (i < n) {
+      const here = stand(i);
+      if (f < STOMP_FROM) return on(here, k);
+      if (f < SEAT) {
+        // A jump per step; it lands as the cartridge drops a step under it.
+        const s = ((f - STOMP_FROM) / (SEAT - STOMP_FROM)) * STOMPS;
+        return on(here, k, Math.sin(Math.PI * (s - Math.floor(s))) * STOMP_UP);
+      }
+      if (f < HOP) {
+        // Seated: a jump for joy, arms up.
+        const t = (f - SEAT) / (HOP - SEAT);
+        const up = Math.sin(Math.PI * t) * JOY_UP;
+        const y = here.y - up * k;
+        return on(here, k, up, t > 0.1 && t < 0.9 ? { l: { x: here.x - 12 * k, y: y - 30 * k }, r: { x: here.x + 12 * k, y: y - 30 * k }, grip: false } : null);
+      }
+      // Over to the next cartridge; on the last one it stays and looks on.
+      if (i + 1 >= n) return on(here, k);
+      const there = stand(i + 1);
+      const t = easeInOut((f - HOP) / (1 - HOP));
+      return {
+        x: mix(here.x, there.x, t),
+        y: mix(here.y, there.y, t) - Math.sin(Math.PI * t) * HOP_UP * k,
+        scale: k,
+        pose: "hover",
+        fly: Math.sin(Math.PI * t) * 0.5,
+        masks: [],
+      };
     }
-    const cart =
-      picked && now - pickedAt < PICK_MS
-        ? picked
-        : carts.reduce((best, el) => (area(el, height) > area(best, height) ? el : best), carts[0]);
-    seat ??= { cart, end };
 
-    // Somewhere else to be: down first, along behind, then up.
-    const away = cart !== seat.cart || end !== seat.end;
-    const down = now < duckUntil || away || from !== null;
-    depth = pace(depth, down ? 1 : 0, dt, down ? DUCK_SECONDS : RISE_SECONDS);
-    if (away && !from && depth >= 1) {
-      from = seat;
-      seat = { cart, end };
-      t = 0;
+    // The open slots: into the first free one, and up out of it.
+    const from = stand(n - 1);
+    const lips = mouth ? Array.from(mouth.querySelectorAll("[data-lip]"), markAt) : [];
+    if (lips.length < 2) return on(from, k);
+    const [l, r] = lips;
+    const lip = { x: (l.x + r.x) / 2, y: (l.y + r.y) / 2 };
+    const front: Poly = [l, r, { x: r.x, y: r.y + BELOW }, { x: l.x, y: l.y + BELOW }];
+    const over = { x: lip.x, y: lip.y - 4 * k };
+    const down = lip.y + HIDDEN * k;
+    if (f < SLOT.over) {
+      const t = easeInOut(f / SLOT.over);
+      return {
+        x: mix(from.x, over.x, t),
+        y: mix(from.y, over.y, t) - Math.sin(Math.PI * t) * HOP_UP * k,
+        scale: k,
+        pose: "hover",
+        fly: Math.sin(Math.PI * t) * 0.5,
+        masks: [],
+      };
     }
-    if (from) {
-      t = Math.min(1, t + dt / SCURRY_SECONDS);
-      if (t >= 1) from = null;
+    if (f < SLOT.hold) {
+      const t = easeInOut(clamp((f - SLOT.over) / (SLOT.drop - SLOT.over), 0, 1));
+      return { x: lip.x, y: mix(over.y, down, t), scale: k, pose: "hover", fly: 0, masks: [front] };
     }
-
-    const here = spot(seat);
-    const there = from ? spot(from) : here;
-    const e = easeInOut(t);
-    const x = mix(there.x, here.x, e);
-    const top = mix(there.top, here.top, e);
-    const y = top + mix(PEEK_DEPTH, HIDDEN, easeInOut(depth)) * k;
-
-    // Too close: down it goes, and it comes up at the other end.
-    const head = { x, y: y - HEAD_CENTER_Y * k };
-    if (poke && depth < 0.3 && Math.hypot(poke.x - head.x, poke.y - head.y) < SHY_NEAR * k) {
-      duckUntil = now + DUCK_MS;
-      end = 1 - end;
-    }
-
-    return {
-      x,
-      y,
-      scale: k,
-      pose: "peek",
-      fly: 0,
-      hands: depth < 0.5 ? kilroy(x, top, k) : null,
-      masks: carts.map((el) => boxPoly(el.getBoundingClientRect())),
-    };
+    const t = easeInOut((f - SLOT.hold) / (1 - SLOT.hold));
+    const hands: Hands | null =
+      t > 0.6 ? { l: { x: lip.x - LIP_HANDS * k, y: lip.y - OVER * k }, r: { x: lip.x + LIP_HANDS * k, y: lip.y - OVER * k }, grip: true } : null;
+    return { x: lip.x, y: mix(down, lip.y + PEEK_DEPTH * k, t), scale: k, pose: "peek", fly: 0, hands, masks: [front] };
   };
 }
+
+/** Where along an edge it peeks over: one end or the other. */
+const ENDS = [0.8, 0.2] as const;
 
 /* 03 ------------------------------------------------------------------- */
 
@@ -373,9 +396,9 @@ function flip(root: HTMLElement, k: number): Act {
   };
 }
 
-const ACTS: Record<ActName, (root: HTMLElement, k: number) => Act> = { shy, seek, lift, flip };
+const ACTS: Record<ActName, (root: HTMLElement, k: number) => Act> = { load, seek, lift, flip };
 
-/** `root` is the station's section; `k` its voxel size (seek: the most). */
+/** `root` is the station's section; `k` its voxel size (load, seek: the most). */
 export function createAct(name: ActName, root: HTMLElement, k: number): Act {
   return ACTS[name](root, k);
 }

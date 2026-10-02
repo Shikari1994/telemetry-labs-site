@@ -13,6 +13,7 @@ import { finale } from "@/lib/motion/finale";
 import { setLenis } from "@/lib/motion/lenis";
 import { pace } from "@/lib/motion/pace";
 import { scrambleElement } from "@/lib/motion/scramble";
+import { OPEN_AT, deck as deckState, seated } from "@/lib/deck/state";
 import { showcase } from "@/lib/showcase/state";
 import { viewer as viewerState } from "@/lib/viewer/state";
 import { COLS, ROWS, chipCells } from "@/lib/stack/board";
@@ -60,6 +61,18 @@ const RING_STEP = 0.8;
 const RING_HOLD = 0.28;
 const RING_TAIL = 0.5;
 const RING_TURN = 0.7;
+
+/* Deck: pinned scroll per beat (in viewport heights), share of it spent
+   holding still at either end, extra scroll (in beats) the open slots hold
+   before the pin ends, and the shortest a beat may take (s): a cartridge's
+   beat is four stomps and a hop, so it gets more time than a ring's turn.
+   The camera swings round this far (deg) over the whole scrub. */
+const DECK_STEP = 0.7;
+const DECK_HOLD = 0.2;
+const DECK_TAIL = 0.4;
+const DECK_BEAT = 1.2;
+const DECK_YAW: [number, number] = [-30, -16];
+const DECK_PITCH: [number, number] = [-26, -20];
 
 /* Stack board: pinned scroll (in screens) and the shortest the whole build
    may take (s); the share where chips start and stop seating, and where the
@@ -157,6 +170,7 @@ export function MotionProvider({ children }: { children: ReactNode }) {
     const heroCueOffs: (() => void)[] = [];
     let finaleCleanup: (() => void) | null = null;
     const viewerMedia = gsap.matchMedia();
+    const deckMedia = gsap.matchMedia();
     const ringMedia = gsap.matchMedia();
     const boardMedia = gsap.matchMedia();
     const finaleMedia = gsap.matchMedia();
@@ -338,47 +352,6 @@ export function MotionProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      /* Works as cartridges: each drops into its slot in steps, the LED
-         decodes to LIVE, then the label's headline and tags follow. ------- */
-      gsap.utils.toArray<HTMLElement>("[data-cart]").forEach((cart) => {
-        const led = cart.querySelector<HTMLElement>("[data-cart-led]");
-        const tl = gsap
-          .timeline({ scrollTrigger: { trigger: cart, start: "top 82%", toggleActions: PLAY_ONCE } })
-          .fromTo(cart, { y: -32 }, { y: 0, duration: 0.42, ease: "steps(6)" }, 0);
-        if (led) tl.add(() => scrambleElement(led, 480), 0.42);
-        tl.fromTo(cart.querySelector("h3"), wipeX.from, { ...wipeX.to, duration: 0.5, ease: "steps(12)" }, 0.5).fromTo(
-          cart.querySelectorAll(".cartTags span"),
-          { autoAlpha: 0, y: 6 },
-          { autoAlpha: 1, y: 0, duration: 0.2, ease: "steps(3)", stagger: 0.08 },
-          0.75,
-        );
-      });
-
-      /* 02 Directions: the menu rows boot as one sequence — per row the
-         pixel code builds in random order, the name wipes, the rest of the
-         row follows. --------------------------------------------------- */
-      const serviceRows = gsap.utils.toArray<HTMLElement>("[data-service]");
-      if (serviceRows.length) {
-        const boot = gsap.timeline({ scrollTrigger: { trigger: serviceRows[0], start: "top 84%", toggleActions: PLAY_ONCE } });
-        serviceRows.forEach((row, index) => {
-          const at = index * 0.18;
-          boot
-            .fromTo(
-              row.querySelectorAll(".serviceCode [data-px]"),
-              { autoAlpha: 0 },
-              { autoAlpha: 1, duration: 0.01, stagger: { amount: 0.4, from: "random" } },
-              at,
-            )
-            .fromTo(row.querySelector("h3"), wipeX.from, { ...wipeX.to, duration: 0.45, ease: "steps(10)" }, at + 0.25)
-            .fromTo(
-              row.querySelectorAll(".serviceLine, .servicePoints, .serviceProof"),
-              wipeY.from,
-              { ...wipeY.to, duration: 0.4, ease: "steps(5)", stagger: 0.08, clearProps: "clipPath" },
-              at + 0.4,
-            );
-        });
-      }
-
       /* Section offers: tag decodes, line wipes, button steps in ---------- */
       gsap.utils.toArray<HTMLElement>("[data-offer]").forEach((offer) => {
         const tag = offer.querySelector<HTMLElement>("[data-offer-tag]");
@@ -407,7 +380,7 @@ export function MotionProvider({ children }: { children: ReactNode }) {
         const last = shots.length - 1;
         const travel = last + VIEWER_TAIL;
         // jump.ts maps a channel onto the pinned range with this.
-        viewer.dataset.viewerTravel = String(travel);
+        viewer.dataset.pinTravel = String(travel);
         let front = 0;
 
         const select = (next: number) => {
@@ -499,6 +472,104 @@ export function MotionProvider({ children }: { children: ReactNode }) {
               gsap.set(shot, { clearProps: "transform,opacity,visibility" });
               shot.style.removeProperty("--shade");
             });
+          };
+        });
+      }
+
+      /* 02 Deck: one scrub runs the machine. Per cartridge the mascot
+         stamps it in a step per landing (lib/deck/state.ts, read by its act),
+         it seats, its port and trace light, the screen boots its work and
+         the channels it proves light up; after the last one the free slots
+         open and the screen turns to the invitation. The camera swings round
+         the deck as it fills. Pinned on every width (see PIN_MEDIA). ------ */
+      const deckSection = document.querySelector<HTMLElement>("[data-deck]");
+      if (deckSection) {
+        const pin = deckSection.querySelector<HTMLElement>("[data-deck-pin]");
+        const scene = deckSection.querySelector<HTMLElement>("[data-deck-scene]");
+        const cam = deckSection.querySelector<HTMLElement>("[data-deck-cam]");
+        const bar = deckSection.querySelector<HTMLElement>("[data-deck-bar]");
+        const carts = gsap.utils.toArray<HTMLElement>("[data-deck-cart]", deckSection);
+        const ports = gsap.utils.toArray<HTMLElement>("[data-deck-port]", deckSection);
+        const traces = gsap.utils.toArray<HTMLElement>("[data-deck-trace]", deckSection);
+        const pages = gsap.utils.toArray<HTMLElement>("[data-deck-page]", deckSection);
+        const channels = gsap.utils.toArray<HTMLElement>("[data-deck-channel]", deckSection);
+        const proofs = gsap.utils.toArray<HTMLElement>("[data-deck-proof]", deckSection);
+        const workIds = carts.map((_, i) => pages[i + 1]?.id ?? "");
+        // Beats: one per cartridge, then the open slots.
+        const end = carts.length + 1;
+        const travel = end + DECK_TAIL;
+        deckSection.dataset.pinTravel = String(travel);
+        let page = -1;
+        let sinks = carts.map(() => -1);
+
+        const show = (next: number) => {
+          if (next === page) return;
+          pages[page]?.classList.remove("is-on");
+          pages[next]?.classList.add("is-on");
+          if (bar) bar.textContent = pages[next]?.dataset.bar ?? "";
+          page = next;
+        };
+
+        const run = (u: number) => {
+          deckState.at = u;
+          const done = carts.map((cart, i) => {
+            const sink = seated(u, i);
+            if (sink !== sinks[i]) {
+              sinks[i] = sink;
+              cart.style.setProperty("--sink", String(sink));
+              cart.classList.toggle("is-seated", sink >= 1);
+              ports[i]?.classList.toggle("is-on", sink >= 1);
+              traces[i]?.classList.toggle("is-on", sink >= 1);
+            }
+            return sink >= 1;
+          });
+          const open = u >= carts.length + OPEN_AT;
+          deckSection.classList.toggle("is-open", open);
+          show(open ? pages.length - 1 : done.lastIndexOf(true) + 1);
+          channels.forEach((channel) => {
+            const by = (channel.dataset.deckChannel ?? "").split(" ");
+            channel.classList.toggle("is-on", workIds.some((id, i) => done[i] && by.includes(id)));
+          });
+          proofs.forEach((proof) => proof.classList.toggle("is-on", done[Number(proof.dataset.deckProof)] ?? false));
+          if (cam) {
+            const t = smooth(gsap.utils.clamp(0, 1, u / end));
+            cam.style.setProperty("--yaw", `${(DECK_YAW[0] + (DECK_YAW[1] - DECK_YAW[0]) * t).toFixed(2)}deg`);
+            cam.style.setProperty("--pitch", `${(DECK_PITCH[0] + (DECK_PITCH[1] - DECK_PITCH[0]) * t).toFixed(2)}deg`);
+          }
+        };
+
+        const goal = (progress: number) => beat(Math.min(progress * travel, end), DECK_HOLD);
+        deckMedia.add(PIN_MEDIA, (context) => {
+          const target = (context.conditions?.phone && scene) || pin;
+          const shown = follower(run, DECK_BEAT);
+          shown.jump(0);
+          const trigger = ScrollTrigger.create({
+            trigger: target,
+            start: () => `top top+=${pinTop()}`,
+            end: () => `+=${Math.round(window.innerHeight * DECK_STEP * travel)}`,
+            pin: target,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+            refreshPriority: 3,
+            onUpdate: (self) => shown.to(goal(self.progress)),
+            onRefresh: (self) => shown.jump(goal(self.progress)),
+          });
+          return () => {
+            trigger.kill(true);
+            shown.kill();
+            deckSection.classList.remove("is-open");
+            sinks = carts.map(() => -1);
+            carts.forEach((cart) => {
+              cart.style.removeProperty("--sink");
+              cart.classList.remove("is-seated");
+            });
+            [...ports, ...traces, ...channels, ...proofs].forEach((el) => el.classList.remove("is-on"));
+            pages.forEach((el) => el.classList.remove("is-on"));
+            page = -1;
+            show(0);
+            cam?.style.removeProperty("--yaw");
+            cam?.style.removeProperty("--pitch");
+            deckState.at = 0;
           };
         });
       }
@@ -886,6 +957,7 @@ export function MotionProvider({ children }: { children: ReactNode }) {
       lenis.destroy();
       gsap.ticker.remove(raf);
       viewerMedia.revert();
+      deckMedia.revert();
       ringMedia.revert();
       boardMedia.revert();
       finaleMedia.revert();

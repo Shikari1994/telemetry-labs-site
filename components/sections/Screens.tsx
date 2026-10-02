@@ -63,7 +63,7 @@ export function Screens() {
                   id={`screen-${screen.slug}`}
                   key={screen.slug}
                   data-viewer-item
-                  data-viewer-index={index}
+                  data-pin-index={index}
                 >
                   <AnchorLink className="viewerRow" to={`screen-${screen.slug}`}>
                     <span className="viewerNo">{screen.index}</span>

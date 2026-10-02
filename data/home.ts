@@ -60,49 +60,46 @@ export const works: readonly Work[] = [
 ];
 
 /**
- * What we build, three directions — the text column that opens 02. Each one
- * points at the place on this page where it can be seen working, so the
- * offer stays backed by a real work; `points` are things that work contains.
+ * What we build, three directions: the channels of 02's cartridge deck. Each
+ * lights when a cartridge that shows it is seated (`by`: the works, by id),
+ * and points at the place on this page where it can be seen working, so the
+ * offer stays backed by a real work.
  */
 export const services = [
   {
     id: "service-web",
     code: "WEB",
-    stack: "ASTRO · GSAP",
     title: "Сайты",
     text: "Сайт, который рассказывает о продукте, а не перечисляет его.",
-    points: ["подача продукта на скролле", "видео и анимация", "быстрая загрузка"],
+    by: ["work-site"],
     proof: { label: "geo-tn.com", to: "case-site" },
   },
   {
     id: "service-3d",
     code: "3D",
-    stack: "THREE.JS · GLSL",
     title: "3D-визуализация",
     text: "Показываем в 3D то, что трудно объяснить словами.",
-    points: ["3D-сцены на сайте", "визуализация данных", "траектория скважины в 3D"],
+    by: ["work-site", "work-monitor"],
     proof: { label: "3D-траектория", to: "screen-survey" },
   },
   {
     id: "service-app",
     code: "APP",
-    stack: "ELECTRON · EXPO",
     title: "Приложения",
     text: "Настольные и мобильные приложения для работы с живыми данными.",
-    points: ["Windows и Android", "данные в реальном времени", "сервер и база данных"],
+    by: ["work-monitor"],
     proof: { label: "Drill Monitor", to: "drill-monitor" },
   },
 ] as const satisfies readonly {
   id: string;
   code: string;
-  stack: string;
   title: string;
   text: string;
-  points: readonly string[];
+  by: readonly string[];
   proof: { label: string; to: string };
 }[];
 
-/** The open bay under the cartridges: the free slots as an invitation. */
+/** The deck's empty slots after the works: the invitation that closes 02. */
 export const openBay = {
   tag: "SLOT 03 · 04 / OPEN",
   text: "Два слота свободны. Следующим может стать ваш проект.",

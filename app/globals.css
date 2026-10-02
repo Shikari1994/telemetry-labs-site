@@ -817,23 +817,8 @@ img {
   font: 400 15px/1 var(--pixel);
   color: var(--accent-deep);
 }
-.islandTitle i {
-  font-style: normal;
-}
 .islandWork:not([data-current]) .islandTitle {
   background: var(--ink-4);
-}
-.islandWork:hover .islandTitle,
-.islandWork:focus-visible .islandTitle {
-  background: var(--accent);
-}
-.islandWork:hover .islandTitle b,
-.islandWork:focus-visible .islandTitle b {
-  color: var(--bg);
-}
-.islandWork:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
 }
 /* The mascot has just flown in. */
 .islandWork[data-entered] .islandScreen {
@@ -1522,296 +1507,385 @@ img {
   color: var(--ink-2);
 }
 
-/* 02 Works ------------------------------------------------------------ */
-/* Directions: one menu window with a double rule, its name set into the top
-   rule and a dithered drop shadow. Each row jumps to the place the
-   direction can be seen; under the pointer the row inverts like a BIOS
-   selection bar. */
-.serviceList {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.serviceRow {
+/* 02 Works: the cartridge deck --------------------------------------------- */
+/* One machine for the section: a CSS 3D deck with four slots, the works as
+   cartridges resting loose in the first two, a screen beside it and the
+   three directions as its channels underneath. Without motion it stands
+   loaded and the screen lists every page; with motion the pin's scrub stamps
+   the cartridges in (MotionProvider, `--sink` 0 resting … 1 seated). */
+.deckScene {
   display: grid;
-  grid-template-columns: 32px 76px minmax(0, 1.25fr) minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 24px;
-  padding: 18px 20px;
-  color: var(--ink);
-  transition:
-    background-color 0.12s steps(1),
-    color 0.12s steps(1);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: var(--gutter);
+  align-items: start;
 }
-.serviceRow:hover,
-.serviceRow:focus-visible {
-  outline: 0;
-  background: var(--accent);
-  color: var(--bg);
-}
-.serviceNo {
-  font: 400 18px/1 var(--pixel);
-  color: var(--ink-4);
-}
-.serviceCode {
-  height: 26px;
-  width: auto;
-  justify-self: start;
-}
-.serviceCode .pixelTextOn rect {
-  fill: var(--accent);
-}
-.serviceText h3 {
-  margin: 0;
-  font: 400 clamp(24px, 2vw, 30px)/1 var(--pixel);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-.serviceLine {
-  display: block;
-  margin-top: 8px;
-  font: 400 13px/1.5 var(--mono);
-  color: var(--ink-2);
-}
-.servicePoints {
-  display: grid;
-  gap: 2px;
-  font: 400 12px/1.5 var(--mono);
-  color: var(--ink-2);
-}
-.servicePoints span::before {
-  content: "+ ";
-  color: var(--accent);
-}
-.serviceProof {
-  font: 500 12px/1 var(--mono);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: var(--ink-3);
-}
-.serviceRow:is(:hover, :focus-visible) :is(.serviceNo, .serviceLine, .servicePoints, .serviceProof) {
-  color: var(--bg);
-}
-.serviceRow:is(:hover, :focus-visible) .servicePoints span::before {
-  color: var(--bg);
-}
-.serviceRow:is(:hover, :focus-visible) .serviceCode .pixelTextOn rect {
-  fill: var(--bg);
-}
-@media (max-width: 1100px) {
-  .serviceRow {
-    grid-template-columns: 32px 64px minmax(0, 1fr) auto;
-    row-gap: 12px;
-  }
-  .serviceProof {
-    grid-row: 1;
-    grid-column: 4;
-  }
-  .servicePoints {
-    grid-column: 3 / -1;
-    grid-template-columns: repeat(3, auto);
-    justify-content: start;
-    column-gap: 18px;
-  }
-}
-
-/* Works as cartridges: a moulded shell (chamfered top-right, notched
-   corners) with a dithered drop shadow, a printed label sticker and the
-   edge connector. Hover lifts the shell out of its shadow in two steps. */
-.worksLabel {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin: 88px 0 28px;
-  font: 500 12px/1.3 var(--mono);
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
-}
-.worksLabel span:first-child {
-  font: 400 22px/1 var(--pixel);
-  letter-spacing: 0.04em;
-  color: var(--ink);
-}
-.worksLabel i {
-  flex: 1;
-  height: 6px;
-  background: repeating-linear-gradient(90deg, var(--ink-4) 0 6px, transparent 6px 10px);
-}
-.bay {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: calc(var(--gutter) + 8px);
-  padding-right: 12px;
-}
-.cart {
-  --cart-shape: polygon(
-    0 6px,
-    6px 6px,
-    6px 0,
-    calc(100% - 24px) 0,
-    calc(100% - 24px) 6px,
-    calc(100% - 18px) 6px,
-    calc(100% - 18px) 12px,
-    calc(100% - 12px) 12px,
-    calc(100% - 12px) 18px,
-    calc(100% - 6px) 18px,
-    calc(100% - 6px) 24px,
-    100% 24px,
-    100% calc(100% - 6px),
-    calc(100% - 6px) calc(100% - 6px),
-    calc(100% - 6px) 100%,
-    6px 100%,
-    6px calc(100% - 6px),
-    0 calc(100% - 6px)
-  );
+/* The deck's world: a dotted floor, the camera looking down at it. */
+.deckView {
+  container-type: size;
   position: relative;
+  height: clamp(300px, 34vw, 460px);
+  overflow: hidden;
+  perspective: 1800px;
+  perspective-origin: 50% 35%;
+  background: conic-gradient(at 2px 2px, transparent 75%, var(--line) 0) 0 0 / 14px 14px;
 }
-.cart::before {
-  content: "";
+/* Deck units (u): 100 across, 28 deep, 16 tall at the front; slots every 25
+   with their centres 17 back from the front edge. The camera turns round the
+   deck's centre; the front face's top edge sits a little under the middle,
+   leaving room above for the cartridges and the robot standing on them. */
+.deckCam {
+  --u: min(0.9cqw, 1.45cqh);
+  --W: calc(var(--u) * 100);
+  --D: calc(var(--u) * 28);
+  --H: calc(var(--u) * 16);
+  --slot-z: calc(var(--u) * 17);
+  --cw: calc(var(--u) * 19);
+  --ch: calc(var(--u) * 25);
+  --ct: calc(var(--u) * 6);
+  position: absolute;
+  left: 50%;
+  top: calc(50% + var(--u) * 16);
+  width: var(--W);
+  height: var(--H);
+  margin-left: calc(var(--W) / -2);
+  transform-style: preserve-3d;
+  transform-origin: 50% 0 calc(var(--D) / -2);
+  transform: rotateX(var(--pitch, -22deg)) rotateY(var(--yaw, -18deg));
+}
+.deckBody {
   position: absolute;
   inset: 0;
-  transform: translate(10px, 10px);
-  clip-path: var(--cart-shape);
-  background: repeating-conic-gradient(var(--ink-4) 0 25%, transparent 0 50%) 0 0 / 4px 4px;
+  transform-style: preserve-3d;
 }
-.cartShell {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  clip-path: var(--cart-shape);
-  background:
-    repeating-conic-gradient(rgba(250, 249, 245, 0.035) 0 25%, transparent 0 50%) 0 0 / 2px 2px,
-    #262421;
-  transition: transform 0.16s steps(2);
+.deckMark {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
 }
-.cart:hover .cartShell {
-  transform: translate(-4px, -4px);
-}
-.cartGrip {
-  display: flex;
+/* Faces: the front at z = 0, the top and the right side hinged back from it. */
+.deckFront {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
-  gap: 12px;
-  margin: 0;
-  padding: 14px 36px 12px 16px;
-  font: 500 11px/1 var(--mono);
-  letter-spacing: 0.08em;
+  border: 2px solid var(--ink-4);
+  background:
+    repeating-linear-gradient(to bottom, rgba(250, 249, 245, 0.05) 0 2px, transparent 2px 6px) 0 0 / 100% calc(var(--u) * 3) no-repeat,
+    #1d1c1a;
+}
+.deckTop {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  width: 100%;
+  height: var(--D);
+  transform-origin: bottom;
+  transform: rotateX(90deg);
+  border: 2px solid var(--ink-4);
+  background:
+    repeating-conic-gradient(rgba(250, 249, 245, 0.05) 0 25%, transparent 0 50%) 0 0 / 4px 4px,
+    #262421;
+}
+.deckSide {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  width: var(--D);
+  height: 100%;
+  transform-origin: left;
+  transform: rotateY(90deg);
+  border: 2px solid var(--ink-4);
+  background:
+    repeating-linear-gradient(90deg, #0b0b0a 0 3px, transparent 3px 8px) 50% 50% / 60% 40% no-repeat,
+    #121110;
+}
+/* Slot mouths on the top face, and the trace each runs to the front. */
+.deckMouth {
+  position: absolute;
+  left: calc(var(--u) * (12.5 + 25 * var(--slot)) - var(--u) * 10.5);
+  top: calc(var(--u) * 7);
+  width: calc(var(--u) * 21);
+  height: calc(var(--u) * 8);
+  background: #0b0b0a;
+  box-shadow:
+    inset calc(var(--u) * 0.8) calc(var(--u) * 0.8) 0 0 #000,
+    inset calc(var(--u) * -0.5) calc(var(--u) * -0.5) 0 0 var(--ink-4);
+}
+.deckTrace {
+  position: absolute;
+  left: calc(50% - var(--u) * 0.6);
+  top: 100%;
+  width: calc(var(--u) * 1.2);
+  height: calc(var(--u) * 13);
+  background: repeating-linear-gradient(to bottom, var(--ink-4) 0 calc(var(--u) * 1.2), transparent 0 calc(var(--u) * 2.4));
+}
+.deckTrace.is-on {
+  background: repeating-linear-gradient(to bottom, var(--accent) 0 calc(var(--u) * 1.2), transparent 0 calc(var(--u) * 2.4));
+  animation: deck-trace 0.8s steps(4) infinite;
+}
+@keyframes deck-trace {
+  to {
+    background-position: 0 calc(var(--u) * 2.4);
+  }
+}
+/* The free slots, once the works are in: the mouth blinks for a cartridge. */
+.is-open .deckMouth.is-free {
+  box-shadow:
+    inset calc(var(--u) * 0.8) calc(var(--u) * 0.8) 0 0 #000,
+    inset 0 0 0 calc(var(--u) * 0.6) var(--accent);
+  animation: caret-blink 1.05s steps(1) infinite;
+}
+/* Ports on the front, one under each slot: number, LED, what is in it. */
+.deckPort {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: center;
+  align-items: center;
+  gap: calc(var(--u) * 0.8) calc(var(--u) * 1.2);
+  font: 400 max(10px, calc(var(--u) * 3.4)) / 1 var(--pixel);
   color: var(--ink-3);
 }
-/* Finger grip: a row of ridges between the slot number and the LED. */
-.cartGrip i {
-  flex: 1;
-  height: 8px;
-  background: repeating-linear-gradient(90deg, var(--ink-4) 0 2px, transparent 2px 6px);
+.deckPort b {
+  font-weight: 400;
 }
-.cartLed {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.deckPort i {
+  width: calc(var(--u) * 1.6);
+  height: calc(var(--u) * 1.6);
+  background: var(--ink-4);
+}
+.deckPort span {
+  grid-column: 1 / -1;
+  justify-self: center;
+  font-size: max(8px, calc(var(--u) * 2));
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--ink-4);
+}
+.deckPort.is-on,
+.deckPort.is-on span {
   color: var(--ink);
 }
-.cartLed::before {
-  content: "";
-  width: 8px;
-  height: 8px;
+.deckPort.is-on i {
   background: var(--accent);
-  animation: caret-blink 1.6s steps(1) infinite;
 }
-/* The label sticker: printed stock, dark ink, the capture inset in it. */
-.cartLabel {
+.is-open .deckPort.is-free i {
+  background: var(--accent);
+  animation: caret-blink 1.05s steps(1) infinite;
+}
+.is-open .deckPort.is-free span {
+  color: var(--accent);
+}
+/* Cartridges: a box standing in its slot. Resting loose it sits high and a
+   little askew; stamped in, it drops to half its height and squares up. */
+.deckCart {
+  --sink: 1;
+  --rest: 0.14;
+  --seat: 0.5;
+  --tip: 2.5deg;
+  position: absolute;
+  left: calc(var(--u) * (12.5 + 25 * var(--slot)) - var(--cw) / 2);
+  bottom: 100%;
+  width: var(--cw);
+  height: var(--ch);
+  transform-style: preserve-3d;
+  transform-origin: 50% 100%;
+  transform: translateZ(calc(var(--ct) / 2 - var(--slot-z)))
+    translateY(calc((var(--rest) + (var(--seat) - var(--rest)) * var(--sink)) * var(--ch)))
+    rotateZ(calc((1 - var(--sink)) * var(--tip)));
+}
+.deckCart:nth-of-type(even) {
+  --tip: -2deg;
+}
+.deckCartFront {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 1);
+  padding: calc(var(--u) * 1.2);
+  border: 2px solid var(--ink-4);
+  background:
+    repeating-conic-gradient(rgba(250, 249, 245, 0.035) 0 25%, transparent 0 50%) 0 0 / 2px 2px,
+    #2c2a26;
+}
+.deckCartGrip {
+  flex: none;
+  height: calc(var(--u) * 1.6);
+  background: repeating-linear-gradient(90deg, var(--ink-4) 0 2px, transparent 2px 5px);
+}
+.deckCartLabel {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 14px;
-  margin: 0 14px;
-  padding: 14px 14px 16px;
+  gap: calc(var(--u) * 0.8);
+  min-height: 0;
+  padding: calc(var(--u) * 1);
   background: var(--sticker);
   color: var(--sticker-ink);
 }
-.cartTop {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin: 0;
-  font: 500 11px/1 var(--mono);
-  letter-spacing: 0.06em;
-  color: var(--sticker-ink-2);
-}
-.cartTop span:first-child {
-  padding: 4px 6px;
-  font: 400 14px/1 var(--pixel);
+.deckCartLabel b {
+  width: fit-content;
+  padding: calc(var(--u) * 0.4) calc(var(--u) * 0.6);
+  font: 400 max(9px, calc(var(--u) * 2.6)) / 1 var(--pixel);
   background: var(--sticker-ink);
   color: var(--sticker);
 }
-.cartMedia {
-  aspect-ratio: 8 / 5;
+.deckCartShot {
+  position: relative;
+  flex: 1;
+  min-height: 0;
   outline: 2px solid var(--sticker-ink);
 }
-.cartLabel .pxCorner {
-  background: var(--sticker);
-  border-color: transparent;
+.deckCartShot .alphaMedia,
+.deckShot .alphaMedia {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
-.cartLabel h3 {
+.deckCartName {
+  overflow: hidden;
+  font: 400 max(8px, calc(var(--u) * 1.9)) / 1 var(--pixel);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.deckCartTop {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  width: 100%;
+  height: var(--ct);
+  transform-origin: bottom;
+  transform: rotateX(90deg);
+  border: 2px solid var(--ink-4);
+  background: #3a3732;
+}
+.deckCartSide {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  width: var(--ct);
+  height: 100%;
+  transform-origin: left;
+  transform: rotateY(90deg);
+  border: 2px solid var(--ink-4);
+  background: #191816;
+}
+.deckCart.is-seated :is(.deckCartFront, .deckCartTop) {
+  animation: deck-clunk 0.36s steps(3) both;
+}
+@keyframes deck-clunk {
+  from {
+    border-color: var(--accent);
+  }
+  to {
+    border-color: var(--ink-4);
+  }
+}
+
+/* The screen: one window, a page per state of the deck. */
+.deckScreen {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.deckPages {
+  display: grid;
+  gap: 28px;
+  padding: 10px 12px 12px;
+}
+.deckIdle {
+  display: none;
+}
+.deckIdleWord {
+  margin: 0;
+  font: 400 clamp(44px, 5vw, 76px) / 1 var(--pixel);
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  animation: caret-blink 1.6s steps(1) infinite;
+}
+.deckIdleLine,
+.deckBoot {
+  margin: 0;
+  font: 500 12px/1.4 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.deckBoot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.deckBoot b {
+  font-weight: 500;
+  color: var(--accent);
+}
+.deckWork {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+.deckShot {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  outline: 2px solid var(--ink-4);
+  background: var(--panel);
+}
+.deckKicker {
   margin: 4px 0 0;
-  font: 400 clamp(28px, 2.6vw, 40px)/1 var(--pixel);
+  font: 500 11px/1.3 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.deckKicker span {
+  color: var(--accent);
+}
+.deckWork h3 {
+  margin: 0;
+  font: 400 clamp(26px, 2.4vw, 36px) / 1 var(--pixel);
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
-.cartText {
+.deckText {
   margin: 0;
-  font: 400 13px/1.55 var(--mono);
-  color: var(--sticker-ink-2);
+  font: 400 13px/1.5 var(--mono);
+  color: var(--ink-2);
 }
-.cartTags {
+.deckTags {
   display: flex;
   flex-wrap: wrap;
-  margin: auto 0 0;
-  padding-top: 10px;
-  border-top: 2px solid var(--sticker-ink);
+  margin: 0;
   font: 500 11px/1.3 var(--mono);
   letter-spacing: 0.06em;
-  color: var(--sticker-ink);
+  color: var(--ink-3);
 }
-.cartTags span + span::before {
+.deckTags span + span::before {
   content: "/";
   margin: 0 8px;
-  color: var(--sticker-ink-2);
+  color: var(--ink-4);
 }
-.workActions {
+.deckActions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 22px;
-  margin: 0;
-  padding: 18px 16px 0;
+  margin: 6px 0 4px;
 }
-/* Edge connector. */
-.cartPins {
-  display: block;
-  height: 12px;
-  margin: 18px 40px 0;
-  background: repeating-linear-gradient(90deg, var(--accent-deep) 0 8px, transparent 8px 12px);
-}
-.cart:hover .cartPins {
-  background: repeating-linear-gradient(90deg, var(--accent) 0 8px, transparent 8px 12px);
-}
-/* Open slots: recessed mouths waiting for a cartridge, and the invitation. */
-.bayOpen {
+.deckOpen {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: var(--gutter);
-  margin: 44px 12px 0 0;
-  padding: 20px 22px;
-  border: 2px dashed var(--ink-4);
+  gap: 14px;
+  justify-items: start;
 }
-.bayMouths {
+.deckOpenSlots {
   display: flex;
   gap: 12px;
+  margin: 0;
 }
-.bayMouth {
+.deckOpenSlots span {
   position: relative;
   display: grid;
   place-items: center;
@@ -1824,21 +1898,248 @@ img {
   font: 400 22px/1 var(--pixel);
   color: var(--ink-3);
 }
-.bayMouth b {
+.deckOpenSlots b {
   font-weight: 400;
 }
-.bayMouth i {
+.deckOpenSlots i {
   position: absolute;
   left: 12px;
   right: 12px;
   bottom: 8px;
   height: 4px;
-  background: var(--accent-deep);
+  background: var(--accent);
   animation: caret-blink 1.05s steps(1) infinite;
 }
-.bayCopy {
+.deckOpenText {
+  margin: 0;
+  font: 400 15px/1.55 var(--mono);
+  color: var(--ink);
+}
+
+/* Channels: the three directions, each lit by the cartridges that show it. */
+.deckChannels {
   display: grid;
-  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 36px 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.deckChannelRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 12px 14px;
+  border: 2px solid var(--ink-4);
+  transition:
+    background-color 0.12s steps(1),
+    color 0.12s steps(1);
+}
+.deckChannelHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.deckLamp {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--ink-4);
+}
+.deckChannelHead b,
+.deckChannelHead strong {
+  font: 400 18px/1 var(--pixel);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.deckChannelText {
+  font: 400 12px/1.5 var(--mono);
+  color: var(--ink-3);
+}
+.deckChannelFoot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+}
+.deckProofSlots {
+  display: flex;
+  gap: 4px;
+}
+.deckProofSlots i {
+  padding: 2px 4px;
+  border: 1px dashed var(--ink-4);
+  font: 400 12px/1 var(--pixel);
+  font-style: normal;
+  color: var(--ink-4);
+  visibility: hidden;
+}
+.deckProofSlots i.is-by {
+  visibility: visible;
+}
+.deckProof {
+  font: 500 11px/1 var(--mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink-3);
+}
+/* Lit: by the scrub, or always when nothing runs it. */
+:is(.deckChannel.is-on, html:not(.motion-enabled) .deckChannel) .deckChannelRow {
+  border-color: var(--accent-deep);
+}
+:is(.deckChannel.is-on, html:not(.motion-enabled) .deckChannel) .deckLamp {
+  background: var(--accent);
+}
+:is(.deckChannel.is-on, html:not(.motion-enabled) .deckChannel) :is(.deckChannelHead b, .deckChannelHead strong) {
+  color: var(--ink);
+}
+:is(.deckChannel.is-on, html:not(.motion-enabled) .deckChannel) .deckChannelText {
+  color: var(--ink-2);
+}
+:is(.deckProofSlots i.is-by.is-on, html:not(.motion-enabled) .deckProofSlots i.is-by) {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+}
+html:not(.motion-enabled) :is(.deckPort:not(.is-free), .deckPort:not(.is-free) span) {
+  color: var(--ink);
+}
+html:not(.motion-enabled) .deckPort:not(.is-free) i {
+  background: var(--accent);
+}
+/* Under the pointer a channel inverts like a selection bar. */
+.deckChannelRow:is(:hover, :focus-visible) {
+  outline: 0;
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.deckChannelRow:is(:hover, :focus-visible) :is(.deckChannelHead b, .deckChannelHead strong, .deckChannelText, .deckProof) {
+  color: var(--bg);
+}
+.deckChannelRow:is(:hover, :focus-visible) .deckLamp {
+  background: var(--bg);
+}
+
+/* With motion the screen shows one page at a time, booting as it switches. */
+.motion-enabled .deckPages {
+  grid-template-areas: "page";
+}
+.motion-enabled .deckPage {
+  grid-area: page;
+  visibility: hidden;
+}
+.motion-enabled .deckPage.is-on {
+  visibility: visible;
+  animation: screenOn 0.42s steps(6) both;
+}
+.motion-enabled .deckIdle {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 18px;
+}
+.motion-enabled .deckWork.is-on .deckBoot b {
+  animation: caret-blink 0.3s steps(1) 3;
+}
+
+/* Pinned (desktop with motion): head, deck and screen, channels — exactly
+   one window tall. */
+@media (min-width: 761px) {
+  .motion-enabled .deckPin {
+    display: flex;
+    flex-direction: column;
+    height: calc(100svh - var(--header-h) - var(--rail-h) - 24px);
+    min-height: 600px;
+  }
+  .motion-enabled .deckPin .blockHead {
+    margin-bottom: 18px;
+  }
+  .motion-enabled .deckScene {
+    flex: 1;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    min-height: 0;
+  }
+  .motion-enabled .deckView {
+    height: auto;
+    min-height: 0;
+  }
+  .motion-enabled .deckPages {
+    flex: 1;
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
+  }
+  .motion-enabled .deckPage {
+    min-height: 0;
+  }
+  /* The capture gives up height when the copy needs it. */
+  .motion-enabled .deckShot {
+    flex: 0 1 auto;
+    min-height: 90px;
+  }
+  .motion-enabled .deckChannels {
+    margin-top: 18px;
+  }
+  .motion-enabled .deckChannelText {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+/* A short window keeps the capture big and lets the machine lines go. */
+@media (min-width: 761px) and (max-height: 820px) {
+  .motion-enabled :is(.deckBoot, .deckKicker) {
+    display: none;
+  }
+}
+/* Phones: deck over its screen, pinned under the head; the channels follow
+   below, one under another. */
+@media (max-width: 760px) {
+  .deckScene {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+  .deckView {
+    height: clamp(240px, 70vw, 320px);
+  }
+  .deckChannels {
+    grid-template-columns: minmax(0, 1fr);
+    margin: 28px 0 0;
+  }
+  .deckIdleWord {
+    font-size: 40px;
+  }
+  .deckOpenSlots span {
+    width: 56px;
+    height: 42px;
+    font-size: 18px;
+  }
+  .motion-enabled .deckScene {
+    grid-template-rows: minmax(0, 1fr) auto;
+    height: calc(100svh - var(--header-h) - var(--rail-h) - 24px);
+    min-height: 520px;
+    gap: 18px;
+  }
+  .motion-enabled .deckView {
+    height: auto;
+    min-height: 0;
+  }
+  .motion-enabled :is(.deckBoot, .deckKicker) {
+    display: none;
+  }
+  .motion-enabled .deckShot {
+    aspect-ratio: 16 / 9;
+  }
+  .motion-enabled .deckPages {
+    gap: 0;
+    padding-top: 6px;
+  }
 }
 /* Section offer: the closing line of a case section ------------------- */
 .offer {
@@ -2137,26 +2438,26 @@ img {
 
 /* Pinned heads (03 ring, 05 viewer, 06 board) sit in three columns so the
    scene keeps the height. */
-:is(.viewerPin, .ringPin, .boardPin) .blockHead {
+:is(.viewerPin, .ringPin, .boardPin, .deckPin) .blockHead {
   grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.6fr);
   row-gap: 14px;
   margin-bottom: 32px;
 }
-:is(.viewerPin, .ringPin, .boardPin) .blockNum {
+:is(.viewerPin, .ringPin, .boardPin, .deckPin) .blockNum {
   grid-row: 1 / span 2;
 }
-:is(.viewerPin, .ringPin, .boardPin) .blockNum .pixelText {
+:is(.viewerPin, .ringPin, .boardPin, .deckPin) .blockNum .pixelText {
   height: clamp(76px, 6.6vw, 104px);
 }
-:is(.viewerPin, .ringPin, .boardPin) .blockLabel {
+:is(.viewerPin, .ringPin, .boardPin, .deckPin) .blockLabel {
   grid-row: 1;
 }
-:is(.viewerPin, .ringPin, .boardPin) .blockTitle {
+:is(.viewerPin, .ringPin, .boardPin, .deckPin) .blockTitle {
   grid-column: 2;
   grid-row: 2;
   font-size: clamp(28px, 2.6vw, 44px);
 }
-:is(.viewerPin, .ringPin, .boardPin) .blockLead {
+:is(.viewerPin, .ringPin, .boardPin, .deckPin) .blockLead {
   grid-column: 3;
   grid-row: 2;
   align-self: end;
@@ -3755,12 +4056,12 @@ img {
   }
   /* Too narrow for the pinned heads' third column: the lead drops under
      the headline. */
-  :is(.viewerPin, .ringPin, .boardPin) .blockTitle,
-  :is(.viewerPin, .ringPin, .boardPin) .blockLead {
+  :is(.viewerPin, .ringPin, .boardPin, .deckPin) .blockTitle,
+  :is(.viewerPin, .ringPin, .boardPin, .deckPin) .blockLead {
     grid-column: 2 / -1;
     grid-row: auto;
   }
-  :is(.viewerPin, .ringPin, .boardPin) .blockNum {
+  :is(.viewerPin, .ringPin, .boardPin, .deckPin) .blockNum {
     grid-row: 1 / span 3;
   }
   .passport {
@@ -4011,14 +4312,14 @@ img {
     border-bottom: 0;
   }
   .blockHead,
-  :is(.viewerPin, .ringPin, .boardPin) .blockHead {
+  :is(.viewerPin, .ringPin, .boardPin, .deckPin) .blockHead {
     grid-template-columns: minmax(0, 1fr);
   }
   .blockHead > *,
   .blockHead > .blockNum,
   .blockHead > .blockLabel,
   .blockHead > .blockAside,
-  :is(.viewerPin, .ringPin, .boardPin) :is(.blockNum, .blockLabel, .blockTitle, .blockLead) {
+  :is(.viewerPin, .ringPin, .boardPin, .deckPin) :is(.blockNum, .blockLabel, .blockTitle, .blockLead) {
     grid-column: 1;
     grid-row: auto;
   }
@@ -4027,45 +4328,11 @@ img {
     padding-left: 0;
   }
   .blockNum .pixelText,
-  :is(.viewerPin, .ringPin, .boardPin) .blockNum .pixelText {
+  :is(.viewerPin, .ringPin, .boardPin, .deckPin) .blockNum .pixelText {
     height: 64px;
   }
   .blockLead {
     font-size: 14px;
-  }
-  .serviceRow {
-    grid-template-columns: 28px minmax(0, 1fr);
-    row-gap: 10px;
-    padding: 16px 14px;
-  }
-  .serviceNo {
-    grid-row: 1;
-  }
-  .serviceCode {
-    grid-column: 2;
-    height: 22px;
-  }
-  .serviceText,
-  .servicePoints,
-  .serviceProof {
-    grid-row: auto;
-    grid-column: 2;
-  }
-  .servicePoints {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .worksLabel {
-    margin-top: 64px;
-  }
-  .bay {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .bayOpen {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: 14px;
-  }
-  .bayOpen .btn {
-    justify-self: start;
   }
   .offer {
     grid-template-columns: minmax(0, 1fr);

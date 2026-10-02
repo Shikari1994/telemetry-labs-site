@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { AlphaVideo } from "@/components/media/AlphaVideo";
-import { AnchorLink } from "@/components/layout/AnchorLink";
 import { PixelMark } from "@/components/pixel/PixelMark";
 import { works } from "@/data/home";
 import { HOLO, ISLAND_CAMERA, MASCOT_VOXEL, SPOT, basis, fitIsland, holoScale, screenCentre, toStage, type Fit } from "@/lib/hero/island";
@@ -72,7 +71,7 @@ export function HeroIsland() {
     const canvas = canvasRef.current;
     const spot = spotRef.current;
     if (!stage || !canvas || !spot) return;
-    const links = Array.from(stage.querySelectorAll<HTMLAnchorElement>("[data-island-work]"));
+    const links = Array.from(stage.querySelectorAll<HTMLElement>("[data-island-work]"));
     const show = (el: HTMLElement, on: boolean) => {
       if (on !== ("shown" in el.dataset)) el.toggleAttribute("data-shown", on);
     };
@@ -293,16 +292,15 @@ export function HeroIsland() {
         </span>
       </span>
       {works.map((work, i) => (
-        <AnchorLink className="islandWork" to={work.caseId} data-island-work aria-label={`${work.title} — к кейсу`} key={work.id}>
+        <div className="islandWork" data-island-work key={work.id}>
           <span className="islandTitle">
             <b>{work.index}</b>
             <span>{work.title}</span>
-            <i aria-hidden="true">↘</i>
           </span>
           <span className="islandScreen">
             <AlphaVideo id={work.media} live={live === i} />
           </span>
-        </AnchorLink>
+        </div>
       ))}
     </div>
   );
