@@ -153,6 +153,16 @@ export function MotionProvider({ children }: { children: ReactNode }) {
     }
     root.classList.add("motion-enabled");
 
+    /* CSS loops (carets, the deck's traces, the 04 beam, the board's static,
+       the dock's charge) pause while their part of the page is off screen: a
+       running animation restyles its element every frame wherever it is. */
+    const parts = Array.from(document.querySelectorAll<HTMLElement>("main.home > :not(.homeFrame), [data-home-flow] > *"));
+    const sleeper = new IntersectionObserver(
+      (entries) => entries.forEach((entry) => entry.target.toggleAttribute("data-offscreen", !entry.isIntersecting)),
+      { rootMargin: "120px 0px" },
+    );
+    parts.forEach((el) => sleeper.observe(el));
+
     const lenis = new Lenis({ lerp: 0.08, wheelMultiplier: 0.9, touchMultiplier: 1, smoothWheel: true });
     setLenis(lenis);
     lenis.on("scroll", ScrollTrigger.update);
@@ -950,6 +960,8 @@ export function MotionProvider({ children }: { children: ReactNode }) {
       if (heroFallback) window.clearTimeout(heroFallback);
       heroCueOffs.forEach((off) => off());
       finaleCleanup?.();
+      sleeper.disconnect();
+      parts.forEach((el) => el.removeAttribute("data-offscreen"));
       document.removeEventListener("visibilitychange", onVisibility);
       window.clearTimeout(resizeTimer);
       window.removeEventListener("resize", onResize);

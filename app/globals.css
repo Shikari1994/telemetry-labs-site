@@ -4611,6 +4611,14 @@ html:not(.motion-enabled) .deckPort:not(.is-free) i {
   }
 }
 
+/* A part of the page well off screen holds its CSS loops (MotionProvider):
+   they would restyle it every frame for no one to see. */
+[data-offscreen] *,
+[data-offscreen] *::before,
+[data-offscreen] *::after {
+  animation-play-state: paused !important;
+}
+
 /* Reduced motion: everything readable, nothing moving -------------------- */
 @media (prefers-reduced-motion: reduce) {
   *,
