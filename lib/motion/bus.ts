@@ -5,7 +5,7 @@
  */
 
 /** Viewport fraction where the signal front rides. Section heads boot as they cross it. */
-export const SIGNAL_LINE = 0.78;
+export const SIGNAL_LINE = 0.7;
 
 /** Lenis' jump easing; the packet shares it so it stays in step with the page. */
 export const jumpEase = (t: number) => 1 - Math.pow(1 - t, 4);

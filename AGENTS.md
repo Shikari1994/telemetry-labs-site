@@ -16,9 +16,13 @@ The visual/motion reference is ChainGPT Labs (`https://labs.chaingpt.org/`) as d
 - No React state updates per scroll frame.
 - One authoritative timeline per narrative scene.
 - No new animation library without explicit approval.
+- Phones get every feature of the desktop homepage (the owner's call), in a
+  phone layout: pinned scenes, WebGL, the mascot's stations, the bus. A
+  hover affordance gets a touch equivalent (a tap lights what a hover would).
 - The signal bus (`components/layout/SignalBus.tsx`, `lib/motion/bus.ts`) is
-  an SVG board in the gutter, desktop only (≥1025px). `jumpTo` launches its
-  packet; section heads boot on its `SIGNAL_LINE`.
+  an SVG board in the gutter beside the rail from 1025px, and in the page's
+  left margin below that. `jumpTo` launches its packet; section heads boot
+  on its `SIGNAL_LINE`.
 - Transits: three, approved by the owner, each moving the camera its own
   way across one voxel circuit board, so that the site reads as a world on a
   board. The page scrolls through a `[data-transit]` spacer
@@ -84,11 +88,11 @@ The visual/motion reference is ChainGPT Labs (`https://labs.chaingpt.org/`) as d
   stack board: one chip per technology on a circuit board, seated on one
   pinned scrub, traces and packets in SVG; `components/sections/StackBoard.tsx`,
   layout in `lib/stack/board.ts`). The one exception is the 03
-  ring on desktop with motion: its front capture is a WebGL slab of voxels
+  ring with motion: its front capture is a WebGL slab of voxels
   that tumbles to the next capture in a wave, on the ring's own scrub
   (published in `lib/showcase/state.ts`); the CSS ring stays laid out under
-  it for the mascot's aim and is the scene on phones, under reduced motion
-  and without WebGL. Anything else is poster or alpha video.
+  it for the mascot's aim and is the scene under reduced motion and without
+  WebGL. Anything else is poster or alpha video.
 - Works are presented as a visual, technological showcase: one short line
   per beat. No formulas, calculations, line counts or spec tables.
 - Every case tells itself the same way: the head's lead says what the work
@@ -103,7 +107,10 @@ The visual/motion reference is ChainGPT Labs (`https://labs.chaingpt.org/`) as d
 - Hero is typography-first and uses one central media object.
 - Motion must read as coordinated choreography, not independent fade-ins.
 - Main reveals use clip/transform or scrubbed state transitions; generic fade-only motion is not acceptable.
-- Long narrative and horizontal stages pin only on desktop and have mobile fallbacks.
+- Long narrative stages (03 ring, 05 viewer, 06 board) pin on every width:
+  desktop pins the section, phones only the scene under its head, in a phone
+  layout (the 06 camera rides close over the board there). Reduced motion is
+  the unpinned fallback.
 - `prefers-reduced-motion` keeps all content readable.
 - Crossing the 761px breakpoint by resizing must rebuild pinned timelines, not
   leave stacked or stale state.

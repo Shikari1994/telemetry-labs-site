@@ -92,9 +92,11 @@ function pulse(node: Element, name: string) {
  * with the scroll, flashing every junction it passes, and into the target's
  * branch.
  *
- * Desktop only (the rail and gutter exist from 1025px). Geometry is read from
- * the live layout on every ScrollTrigger refresh, so pins and resizes are
- * accounted for; per-frame work is attribute writes, no React state.
+ * From 1025px it runs in the gutter beside the rail; narrower, where the
+ * rail is a status bar, in the page's left margin with as many lanes as fit.
+ * Geometry is read from the live layout on every ScrollTrigger refresh, so
+ * pins and resizes are accounted for; per-frame work is attribute writes, no
+ * React state.
  */
 export function SignalBus() {
   const ref = useRef<SVGSVGElement>(null);
@@ -108,9 +110,9 @@ export function SignalBus() {
     gsap.registerPlugin(ScrollTrigger);
 
     const mm = gsap.matchMedia();
-    mm.add({ desktop: "(min-width: 1025px)", reduced: "(prefers-reduced-motion: reduce)" }, (context) => {
-      const { desktop, reduced } = context.conditions as { desktop: boolean; reduced: boolean };
-      if (!desktop) return;
+    // Rebuilt across 1025px, where the rail column comes and goes.
+    mm.add({ wide: "(min-width: 1025px)", narrow: "(max-width: 1024px)", reduced: "(prefers-reduced-motion: reduce)" }, (context) => {
+      const { reduced } = context.conditions as { reduced: boolean };
 
       /* Static scaffold: groups are rebuilt on refresh, these stay. */
       const defs = svg("defs", {}, root);
@@ -144,7 +146,11 @@ export function SignalBus() {
 
         const left = flowRect.left - frameRect.left;
         const right = flowRect.right - frameRect.left;
-        trunkX = Math.round(left - TRUNK_INSET) + 0.5;
+        // A phone's margin is narrow: the trunk takes its middle, the lanes
+        // close up and only those that fit (with their jog) are drawn.
+        trunkX = Math.round(left - Math.min(TRUNK_INSET, left / 2)) + 0.5;
+        const pitch = trunkX > 4 * PITCH ? PITCH : PITCH / 2;
+        const laneCount = Math.max(0, Math.min(LANES, Math.floor((trunkX - 1) / pitch) - 1));
 
         const sections = homeTree
           .filter((node) => node.id !== "top")
@@ -162,16 +168,16 @@ export function SignalBus() {
            routed bus; the trunk runs straight. */
         const jogs = sections.slice(1).map((section, index) => (sections[index].y + section.y) / 2);
         const lanes: Pt[][] = [];
-        for (let k = 1; k <= LANES; k += 1) {
+        for (let k = 1; k <= laneCount; k += 1) {
           let shift = 0;
-          const points: Pt[] = [[trunkX - k * PITCH, 0]];
+          const points: Pt[] = [[trunkX - k * pitch, 0]];
           jogs.forEach((y, index) => {
-            const next = index % 2 === 0 ? -PITCH : 0;
-            points.push([trunkX - k * PITCH + shift, Math.round(y) - PITCH / 2]);
-            points.push([trunkX - k * PITCH + next, Math.round(y) + PITCH / 2]);
+            const next = index % 2 === 0 ? -pitch : 0;
+            points.push([trunkX - k * pitch + shift, Math.round(y) - pitch / 2]);
+            points.push([trunkX - k * pitch + next, Math.round(y) + pitch / 2]);
             shift = next;
           });
-          points.push([trunkX - k * PITCH + shift, height]);
+          points.push([trunkX - k * pitch + shift, height]);
           lanes.push(points);
         }
         const trunk: Pt[] = [

@@ -23,10 +23,10 @@ const load = (src: string) =>
 
 /**
  * Case 01's screen in WebGL (lib/showcase): the capture in front as a slab of
- * voxels that tumbles to the next one as the ring scrub turns. Desktop with
- * motion only; it takes over the stage once every capture has loaded, and
- * until then (and on phones, under reduced motion or without WebGL) the CSS
- * ring underneath is the scene. It reads the scrub from lib/showcase/state on
+ * voxels that tumbles to the next one as the ring scrub turns. With motion
+ * only; it takes over the stage once every capture has loaded, and until
+ * then (and under reduced motion or without WebGL) the CSS ring underneath
+ * is the scene. It reads the scrub from lib/showcase/state on
  * the GSAP ticker and draws only while the section is on screen and
  * something changed.
  */
@@ -41,7 +41,7 @@ export function ShowcaseScene() {
     gsap.registerPlugin(ScrollTrigger);
 
     const mm = gsap.matchMedia();
-    mm.add("(min-width: 761px) and (prefers-reduced-motion: no-preference)", () => {
+    mm.add("(prefers-reduced-motion: no-preference)", () => {
       const renderer = createShowcaseRenderer(canvas);
       if (!renderer) return;
       let alive = true;

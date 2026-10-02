@@ -11,8 +11,10 @@ import { onHeroCue } from "@/lib/motion/heroCue";
 import { SIGNAL_LINE } from "@/lib/motion/bus";
 import { finale } from "@/lib/motion/finale";
 import { setLenis } from "@/lib/motion/lenis";
+import { pace } from "@/lib/motion/pace";
 import { scrambleElement } from "@/lib/motion/scramble";
 import { showcase } from "@/lib/showcase/state";
+import { COLS, ROWS, chipCells } from "@/lib/stack/board";
 
 type ReadyWindow = Window & { __telemetryReady?: boolean };
 
@@ -32,29 +34,93 @@ const wipeY = { from: { clipPath: "inset(0 0 100% 0)" }, to: { clipPath: "inset(
    reverses behaves the same without that hazard. */
 const PLAY_ONCE = "play none none none";
 
-/* Viewer: share of each screen's scroll spent holding still at either end,
-   extra scroll (in screens) the last one holds, how many captures show in
-   the stack behind the front one, and how far up (% of a capture) and back
-   (px) each place in the stack sits. */
+/* Pinned scenes follow their scroll at their own pace (lib/motion/pace): no
+   faster than their shortest beat, and a long way behind (after a jump) they
+   close the gap at no less than gap / CATCH_UP per second. */
+const CATCH_UP = 1.2;
+
+/* Viewer: pinned scroll per capture (in viewport heights), share of it spent
+   holding still at either end, extra scroll (in captures) the last one
+   holds, the shortest a flip may take (s), how many captures show in the
+   stack behind the front one, and how far up (% of a capture) and back (px)
+   each place in the stack sits. */
+const VIEWER_STEP = 0.8;
 const VIEWER_HOLD = 0.24;
 const VIEWER_TAIL = 0.5;
+const VIEWER_FLIP = 0.6;
 const VIEWER_DEPTH = 3;
 const VIEWER_RISE = 16;
 const VIEWER_SINK = 150;
 
-/* Ring: share of each screen's scroll spent holding still at either end. */
-const RING_HOLD = 0.2;
-/* Ring: extra scroll (in screens) the last screen holds before the pin ends. */
+/* Ring: pinned scroll per screen (in viewport heights), share of it spent
+   holding still at either end, extra scroll (in screens) the last screen
+   holds before the pin ends, and the shortest a turn may take (s). */
+const RING_STEP = 0.8;
+const RING_HOLD = 0.28;
 const RING_TAIL = 0.5;
+const RING_TURN = 0.7;
 
-/* Stack board: pinned scroll (in screens); the share where chips start and
-   stop seating, and where the board reports ready; how many chips' turns
-   one drop lasts, so the next chip is already falling as one seats. */
-const BOARD_TRAVEL = 2.4;
+/* Stack board: pinned scroll (in screens) and the shortest the whole build
+   may take (s); the share where chips start and stop seating, and where the
+   board reports ready; how many chips' turns one drop lasts, so the next
+   chip is already falling as one seats. */
+const BOARD_TRAVEL = 3;
+const BOARD_SECONDS = 4;
 const BOARD_SEAT_FROM = 0.06;
 const BOARD_SEAT_TO = 0.82;
 const BOARD_READY = 0.86;
 const BOARD_OVERLAP = 2.4;
+/* Phones: the camera rides over the board close enough for a chip's label
+   to read (a cell this many px wide), and lets go to show it whole once
+   the last chip is in. */
+const BOARD_CELL_PX = 15;
+const BOARD_ZOOM_MAX = 3.2;
+/* The power-off of the last screen: scroll it is pinned for, in viewport heights. */
+const FINALE_RUN = 1.6;
+const FINALE_RUN_PHONE = 1.3;
+const FINALE_SCRUB = 0.4;
+/* Section heads boot this much slower than their timeline is written, so the
+   wipe is still running when the eye gets there. */
+const HEAD_PACE = 0.72;
+
+/**
+ * A scene's position that follows the scroll's at its own pace (see
+ * lib/motion/pace) on the ticker: `to` sets where the scroll says it should
+ * be, `jump` puts it there at once (a refresh moves the layout, not the
+ * visitor), and every frame it moves `apply` closer.
+ */
+function follower(apply: (u: number) => void, seconds: number) {
+  const state = { goal: 0, u: 0 };
+  const tick = (_time: number, deltaMs: number) => {
+    if (state.u === state.goal) return;
+    state.u = pace(state.u, state.goal, Math.min(0.1, deltaMs / 1000), seconds, CATCH_UP);
+    apply(state.u);
+  };
+  gsap.ticker.add(tick);
+  return {
+    to: (goal: number) => {
+      state.goal = goal;
+    },
+    jump: (goal: number) => {
+      state.goal = state.u = goal;
+      apply(goal);
+    },
+    kill: () => gsap.ticker.remove(tick),
+  };
+}
+
+const smooth = (t: number) => t * t * (3 - 2 * t);
+
+/* Pinned scenes rebuild across the phone breakpoint: desktop pins the whole
+   section, phones only the scene under its head (the head is too tall to
+   share a phone screen with it). */
+const PIN_MEDIA = { wide: "(min-width: 761px)", phone: "(max-width: 760px)" };
+
+/** Pinned position (in beats) with the holds taken out: k + share of the move into the next beat. */
+function beat(position: number, hold: number) {
+  const k = Math.floor(position);
+  return k + gsap.utils.clamp(0, 1, (position - k - hold) / (1 - 2 * hold));
+}
 
 export function MotionProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
@@ -81,6 +147,9 @@ export function MotionProvider({ children }: { children: ReactNode }) {
     gsap.ticker.lagSmoothing(0);
 
     const headerHeight = () => document.querySelector<HTMLElement>("[data-site-header]")?.offsetHeight ?? 72;
+    /* Pinned scenes start under the header and, where the TREE rail is a
+       sticky bar (≤1024px), under that too. */
+    const pinTop = () => headerHeight() + (parseFloat(getComputedStyle(root).getPropertyValue("--rail-h")) || 0) + 12;
 
     let heroReadyHandler: (() => void) | null = null;
     let heroFallback = 0;
@@ -89,6 +158,7 @@ export function MotionProvider({ children }: { children: ReactNode }) {
     const viewerMedia = gsap.matchMedia();
     const ringMedia = gsap.matchMedia();
     const boardMedia = gsap.matchMedia();
+    const finaleMedia = gsap.matchMedia();
 
     const ctx = gsap.context(() => {
       /* Header ------------------------------------------------------------ */
@@ -177,9 +247,11 @@ export function MotionProvider({ children }: { children: ReactNode }) {
         const titleLines = head.querySelectorAll("[data-title-line]");
         const lead = head.querySelector("[data-block-lead]");
         // Heads boot as the signal front reaches them (see SignalBus).
-        const tl = gsap.timeline({
-          scrollTrigger: { trigger: head, start: `top ${SIGNAL_LINE * 100}%`, toggleActions: PLAY_ONCE },
-        });
+        const tl = gsap
+          .timeline({
+            scrollTrigger: { trigger: head, start: `top ${SIGNAL_LINE * 100}%`, toggleActions: PLAY_ONCE },
+          })
+          .timeScale(HEAD_PACE);
         const numPixels = head.querySelectorAll("[data-head-num] [data-px]");
         if (numPixels.length) {
           tl.fromTo(numPixels, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.01, stagger: { amount: 0.45, from: "random" } }, 0);
@@ -321,11 +393,11 @@ export function MotionProvider({ children }: { children: ReactNode }) {
 
       /* Case 02 screens: the viewer holds on each capture, then flips it
          down out of the window and the stack behind moves up a place; the
-         channel list follows. Pinned on desktop only, rebuilt across the
-         breakpoint; phones keep the flat row the markup ships. */
+         channel list follows. Pinned on every width (see PIN_MEDIA). */
       const viewer = document.querySelector<HTMLElement>("[data-viewer]");
       if (viewer) {
         const pin = viewer.querySelector<HTMLElement>("[data-viewer-pin]");
+        const scene = viewer.querySelector<HTMLElement>("[data-viewer-scene]");
         const win = viewer.querySelector<HTMLElement>("[data-viewer-win]");
         const channel = viewer.querySelector<HTMLElement>("[data-viewer-ch]");
         const bar = viewer.querySelector<HTMLElement>("[data-viewer-bar]");
@@ -347,9 +419,10 @@ export function MotionProvider({ children }: { children: ReactNode }) {
           front = next;
         };
 
-        const flip = (position: number) => {
-          const k = Math.floor(position);
-          const f = gsap.utils.clamp(0, 1, (position - k - VIEWER_HOLD) / (1 - 2 * VIEWER_HOLD));
+        // `u` is the paced beat (see `beat`); each flip eases in and out.
+        const flip = (u: number) => {
+          const k = Math.floor(u);
+          const f = u - k;
           const at = k + f * f * (3 - 2 * f);
           shots.forEach((shot, index) => {
             const rel = index - at;
@@ -396,28 +469,28 @@ export function MotionProvider({ children }: { children: ReactNode }) {
           scrollTrigger: { trigger: viewer.querySelector(".viewerList"), start: "top 84%", toggleActions: PLAY_ONCE },
         });
 
-        viewerMedia.add("(min-width: 761px)", () => {
-          const proxy = { p: 0 };
-          flip(0);
-          const tween = gsap.to(proxy, {
-            p: travel,
-            ease: "none",
-            onUpdate: () => flip(Math.min(proxy.p, last)),
-            scrollTrigger: {
-              trigger: pin,
-              start: () => `top top+=${headerHeight() + 12}`,
-              end: () => `+=${Math.round(window.innerHeight * 0.6 * travel)}`,
-              pin,
-              scrub: 0.7,
-              anticipatePin: 1,
-              invalidateOnRefresh: true,
-              refreshPriority: 1,
-              onUpdate: (self) => bar && paintBar(bar, self.progress, 20),
+        viewerMedia.add(PIN_MEDIA, (context) => {
+          const target = (context.conditions?.phone && scene) || pin;
+          const shown = follower(flip, VIEWER_FLIP);
+          const goal = (progress: number) => beat(Math.min(progress * travel, last), VIEWER_HOLD);
+          shown.jump(0);
+          const trigger = ScrollTrigger.create({
+            trigger: target,
+            start: () => `top top+=${pinTop()}`,
+            end: () => `+=${Math.round(window.innerHeight * VIEWER_STEP * travel)}`,
+            pin: target,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+            refreshPriority: 1,
+            onUpdate: (self) => {
+              shown.to(goal(self.progress));
+              if (bar) paintBar(bar, self.progress, 20);
             },
+            onRefresh: (self) => shown.jump(goal(self.progress)),
           });
           return () => {
-            tween.scrollTrigger?.kill(true);
-            tween.kill();
+            trigger.kill(true);
+            shown.kill();
             select(0);
             shots.forEach((shot) => {
               gsap.set(shot, { clearProps: "transform,opacity,visibility" });
@@ -425,28 +498,15 @@ export function MotionProvider({ children }: { children: ReactNode }) {
             });
           };
         });
-        // Phones swipe the flat row; the channel follows the capture in view.
-        const stage = viewer.querySelector<HTMLElement>("[data-viewer-stage]");
-        viewerMedia.add("(max-width: 760px)", () => {
-          if (!stage) return;
-          const onSwipe = () => {
-            const width = shots[0]?.offsetWidth || 1;
-            select(gsap.utils.clamp(0, last, Math.round(stage.scrollLeft / width)));
-          };
-          stage.addEventListener("scroll", onSwipe, { passive: true });
-          return () => {
-            stage.removeEventListener("scroll", onSwipe);
-            select(0);
-          };
-        });
       }
 
       /* Case 01 ring: scroll turns it one screen at a time. The turn holds on
          each screen, then swings to the next; the front screen's copy takes
-         over. Pinned on desktop, a plain scrub on phones. */
+         over. Pinned on every width (see PIN_MEDIA). */
       const ringSection = document.querySelector<HTMLElement>("[data-ring]");
       if (ringSection) {
         const pin = ringSection.querySelector<HTMLElement>("[data-ring-pin]");
+        const scene = ringSection.querySelector<HTMLElement>("[data-ring-scene]");
         const stage = ringSection.querySelector<HTMLElement>("[data-ring-stage]");
         const spinner = ringSection.querySelector<HTMLElement>("[data-ring-spin]");
         const dial = ringSection.querySelector<HTMLElement>("[data-ring-dial]");
@@ -456,9 +516,10 @@ export function MotionProvider({ children }: { children: ReactNode }) {
         const step = 360 / cards.length;
         let front = 0;
 
-        const turn = (position: number) => {
-          const k = Math.floor(position);
-          const f = gsap.utils.clamp(0, 1, (position - k - RING_HOLD) / (1 - 2 * RING_HOLD));
+        // `u` is the paced beat (see `beat`); each turn eases in and out.
+        const turn = (u: number) => {
+          const k = Math.floor(u);
+          const f = u - k;
           const angle = (k + f * f * (3 - 2 * f)) * step;
           // The WebGL screen (ShowcaseScene) takes the same beat.
           showcase.screen = Math.min(k, cards.length - 1);
@@ -492,39 +553,26 @@ export function MotionProvider({ children }: { children: ReactNode }) {
         // before the pin lets go.
         const last = cards.length - 1;
         const travel = last + RING_TAIL;
-        const proxy = { p: 0 };
-        const apply = () => turn(Math.min(proxy.p, last));
-        ringMedia.add("(min-width: 761px)", () => {
-          proxy.p = 0;
-          const tween = gsap.to(proxy, {
-            p: travel,
-            ease: "none",
-            onUpdate: apply,
-            scrollTrigger: {
-              trigger: pin,
-              start: () => `top top+=${headerHeight() + 12}`,
-              end: () => `+=${Math.round(window.innerHeight * 0.55 * travel)}`,
-              pin,
-              scrub: 0.8,
-              anticipatePin: 1,
-              invalidateOnRefresh: true,
-              refreshPriority: 2,
-            },
+        const goal = (progress: number) => beat(Math.min(progress * travel, last), RING_HOLD);
+        ringMedia.add(PIN_MEDIA, (context) => {
+          const target = (context.conditions?.phone && scene) || pin;
+          const shown = follower(turn, RING_TURN);
+          shown.jump(0);
+          const trigger = ScrollTrigger.create({
+            trigger: target,
+            start: () => `top top+=${pinTop()}`,
+            end: () => `+=${Math.round(window.innerHeight * RING_STEP * travel)}`,
+            pin: target,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+            refreshPriority: 2,
+            onUpdate: (self) => shown.to(goal(self.progress)),
+            onRefresh: (self) => shown.jump(goal(self.progress)),
           });
           return () => {
-            tween.scrollTrigger?.kill(true);
-            tween.kill();
+            trigger.kill(true);
+            shown.kill();
           };
-        });
-        ringMedia.add("(max-width: 760px)", () => {
-          proxy.p = 0;
-          const tween = gsap.to(proxy, {
-            p: travel,
-            ease: "none",
-            onUpdate: apply,
-            scrollTrigger: { trigger: stage, start: "top 70%", end: "bottom 10%", scrub: 0.6 },
-          });
-          return () => tween.kill();
         });
       }
 
@@ -557,15 +605,16 @@ export function MotionProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      /* 06 Stack board: pinned on desktop (where it runs behind the mascot's
-         glass, components/mascot), one scrub tilts the board in and
-         seats the chips in the data's order, rig to screens, then the site;
-         a trace lights once both its chips are in, the POST log prints each
-         chip, and the board reports ready for the packets (StackBoard).
-         Phones get the list by zone, row by row. ------------------------- */
+      /* 06 Stack board: pinned (behind the mascot's glass, components/mascot),
+         one scrub tilts the board in and seats the chips in the data's
+         order, rig to screens, then the site; a trace lights once both its
+         chips are in, the POST log prints each chip, and the board reports
+         ready for the packets (StackBoard). On phones the camera rides close
+         over the board from chip to chip and pulls back once all are in. -- */
       const board = document.querySelector<HTMLElement>("[data-board]");
       if (board) {
         const pin = board.querySelector<HTMLElement>("[data-board-pin]");
+        const dock = board.querySelector<HTMLElement>("[data-board-dock]");
         const plane = board.querySelector<HTMLElement>("[data-board-plane]");
         const win = board.querySelector<HTMLElement>("[data-board-screen]");
         const chips = gsap.utils.toArray<HTMLElement>("[data-chip]", board);
@@ -575,6 +624,13 @@ export function MotionProvider({ children }: { children: ReactNode }) {
         const index = new Map(chips.map((chip, i) => [chip.dataset.chip, i]));
         const slot = (BOARD_SEAT_TO - BOARD_SEAT_FROM) / (chips.length - 1 + BOARD_OVERLAP);
         const drops = chips.map(() => -1);
+        // Chip centres in cells from the board's centre, for the phone camera.
+        const centres = chips.map((chip) => {
+          const cell = chipCells[chip.dataset.chip ?? ""];
+          return cell ? [cell.x - 1 + cell.w / 2 - COLS / 2, cell.y - ROWS / 2] : [0, 0];
+        });
+        // Phone camera zoom (1 = off), measured on refresh.
+        let closeUp = 1;
 
         if (win) {
           gsap.fromTo(win, wipeY.from, {
@@ -608,30 +664,53 @@ export function MotionProvider({ children }: { children: ReactNode }) {
           const e = k * k * (3 - 2 * k);
           plane?.style.setProperty("--tilt", `${(46 - 24 * e).toFixed(2)}deg`);
           plane?.style.setProperty("--rz", `${(-12 + 12 * e).toFixed(2)}deg`);
-          plane?.style.setProperty("--zoom", (0.86 + 0.14 * e).toFixed(3));
+          let zoom = 0.86 + 0.14 * e;
+          if (closeUp > 1) {
+            // Close in over the first drop, follow the chip in the air, pull
+            // back between the last seat and ready.
+            const near =
+              smooth(gsap.utils.clamp(0, 1, p / (BOARD_SEAT_FROM + slot))) *
+              (1 - smooth(gsap.utils.clamp(0, 1, (p - BOARD_SEAT_TO) / (BOARD_READY - BOARD_SEAT_TO))));
+            const at = gsap.utils.clamp(0, chips.length - 1, (p - BOARD_SEAT_FROM) / slot - 0.6);
+            const k = Math.floor(at);
+            const f = smooth(at - k);
+            const [ax, ay] = centres[k];
+            const [bx, by] = centres[Math.min(chips.length - 1, k + 1)];
+            zoom *= 1 + (closeUp - 1) * near;
+            plane?.style.setProperty("--pan-x", (-(ax + (bx - ax) * f) * near).toFixed(3));
+            plane?.style.setProperty("--pan-y", (-(ay + (by - ay) * f) * near).toFixed(3));
+          }
+          plane?.style.setProperty("--zoom", zoom.toFixed(3));
         };
 
-        boardMedia.add("(min-width: 761px)", () => {
+        boardMedia.add(PIN_MEDIA, (context) => {
+          const phone = Boolean(context.conditions?.phone);
+          const target = (phone && dock) || pin;
+          const measure = () => {
+            const cell = (plane?.offsetWidth ?? 0) / COLS;
+            closeUp = phone && cell > 0 ? gsap.utils.clamp(1, BOARD_ZOOM_MAX, BOARD_CELL_PX / cell) : 1;
+          };
           board.classList.add("is-building");
-          const proxy = { p: 0 };
-          assemble(0);
-          const tween = gsap.to(proxy, {
-            p: 1,
-            ease: "none",
-            onUpdate: () => assemble(proxy.p),
-            scrollTrigger: {
-              trigger: pin,
-              start: () => `top top+=${headerHeight() + 12}`,
-              end: () => `+=${Math.round(window.innerHeight * BOARD_TRAVEL)}`,
-              pin,
-              scrub: 0.7,
-              anticipatePin: 1,
-              invalidateOnRefresh: true,
+          const built = follower(assemble, BOARD_SECONDS);
+          measure();
+          built.jump(0);
+          const trigger = ScrollTrigger.create({
+            trigger: target,
+            start: () => `top top+=${pinTop()}`,
+            end: () => `+=${Math.round(window.innerHeight * BOARD_TRAVEL)}`,
+            pin: target,
+            anticipatePin: 1,
+            invalidateOnRefresh: true,
+            onUpdate: (self) => built.to(self.progress),
+            onRefresh: (self) => {
+              measure();
+              built.jump(self.progress);
             },
           });
           return () => {
-            tween.scrollTrigger?.kill(true);
-            tween.kill();
+            trigger.kill(true);
+            built.kill();
+            closeUp = 1;
             board.classList.remove("is-building", "is-ready");
             readyLine?.classList.remove("is-on");
             chips.forEach((chip, i) => {
@@ -641,25 +720,8 @@ export function MotionProvider({ children }: { children: ReactNode }) {
               drops[i] = -1;
             });
             paths.forEach((path) => path.classList.remove("is-on"));
-            ["--tilt", "--rz", "--zoom"].forEach((name) => plane?.style.removeProperty(name));
+            ["--tilt", "--rz", "--zoom", "--pan-x", "--pan-y"].forEach((name) => plane?.style.removeProperty(name));
           };
-        });
-        boardMedia.add("(max-width: 760px)", () => {
-          const tweens = gsap.utils.toArray<HTMLElement>(".boardZone", board).map((zone) =>
-            gsap.fromTo(zone.querySelectorAll(".boardFrame, .boardChip"), wipeX.from, {
-              ...wipeX.to,
-              duration: 0.35,
-              ease: "steps(7)",
-              stagger: 0.07,
-              clearProps: "clipPath",
-              scrollTrigger: { trigger: zone, start: "top 86%", toggleActions: PLAY_ONCE },
-            }),
-          );
-          return () =>
-            tweens.forEach((tween) => {
-              tween.scrollTrigger?.kill();
-              tween.kill();
-            });
         });
       }
 
@@ -747,13 +809,36 @@ export function MotionProvider({ children }: { children: ReactNode }) {
           }
         };
         apply(0);
-        ScrollTrigger.create({
-          trigger: finaleStage,
-          start: "top 75%",
-          end: "max",
-          onUpdate: (self) => apply(self.progress),
-          onRefresh: (self) => apply(self.progress),
-        });
+
+        /* The last screen is pinned and the shutdown plays over a stretch of
+           scroll of its own (a screen and a half, a little less on phones), eased by a
+           short scrub, so a flick of the wheel cannot run it through. */
+        const runway = (screens: number) => {
+          const proxy = { p: 0 };
+          const tween = gsap.to(proxy, {
+            p: 1,
+            ease: "none",
+            onUpdate: () => apply(proxy.p),
+            scrollTrigger: {
+              trigger: finaleStage,
+              // As it sat at the end of the page before: under the header, with
+              // the strip of the footer's foot below it.
+              start: "top top",
+              end: () => `+=${Math.round(window.innerHeight * screens)}`,
+              pin: true,
+              scrub: FINALE_SCRUB,
+              anticipatePin: 1,
+              invalidateOnRefresh: true,
+            },
+          });
+          return () => {
+            tween.scrollTrigger?.kill(true);
+            tween.kill();
+            apply(0);
+          };
+        };
+        finaleMedia.add("(min-width: 761px)", () => runway(FINALE_RUN));
+        finaleMedia.add("(max-width: 760px)", () => runway(FINALE_RUN_PHONE));
       }
 
       gsap.fromTo(
@@ -800,6 +885,7 @@ export function MotionProvider({ children }: { children: ReactNode }) {
       viewerMedia.revert();
       ringMedia.revert();
       boardMedia.revert();
+      finaleMedia.revert();
       ctx.revert();
       ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
       root.classList.remove("motion-enabled");

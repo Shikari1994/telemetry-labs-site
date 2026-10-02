@@ -23,6 +23,10 @@ const HOLO_DOWN = 0.35;
 const HOLO_STAGGER = 0.3;
 /** With nobody pointing, the other work takes the front this often. */
 const CYCLE_MS = 6500;
+/** Touch screens: degrees of tilt that swing the camera fully, and the reach
+    of the sway (of the cursor's full swing) when there is no tilt to read. */
+const TILT_RANGE = 18;
+const SWAY = 0.45;
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -203,6 +207,24 @@ export function HeroIsland() {
       parallax.ty = (event.clientY / window.innerHeight) * 2 - 1;
     };
     if (!coarse) window.addEventListener("pointermove", onMove, { passive: true });
+    /* No cursor: tilting the phone steers the camera where the browser
+       reports it unasked (a slowly following rest pose, so holding it at
+       any angle reads as level); until it does, the camera sways on its own. */
+    let tilted = false;
+    const rest = [0, 0];
+    const onTilt = (event: DeviceOrientationEvent) => {
+      if (event.gamma === null || event.beta === null) return;
+      if (!tilted) {
+        rest[0] = event.gamma;
+        rest[1] = event.beta;
+        tilted = true;
+      }
+      rest[0] += (event.gamma - rest[0]) * 0.01;
+      rest[1] += (event.beta - rest[1]) * 0.01;
+      parallax.tx = gsap.utils.clamp(-1, 1, (event.gamma - rest[0]) / TILT_RANGE);
+      parallax.ty = gsap.utils.clamp(-1, 1, (event.beta - rest[1]) / TILT_RANGE);
+    };
+    if (coarse) window.addEventListener("deviceorientation", onTilt, { passive: true });
 
     const watch = ScrollTrigger.create({ trigger: stage, start: "top bottom", end: "bottom top" });
 
@@ -237,6 +259,11 @@ export function HeroIsland() {
           lift[i] += (to - lift[i]) * (1 - Math.exp(-dt * 6));
         }
       }
+      if (coarse && !tilted) {
+        const t = (now - startedAt) / 1000;
+        parallax.tx = Math.sin(t * 0.35) * SWAY;
+        parallax.ty = Math.sin(t * 0.23) * SWAY * 0.6;
+      }
       parallax.x += (parallax.tx - parallax.x) * (1 - Math.exp(-dt * 5));
       parallax.y += (parallax.ty - parallax.y) * (1 - Math.exp(-dt * 5));
       renderer.draw(frame(now));
@@ -248,6 +275,7 @@ export function HeroIsland() {
       gsap.ticker.remove(tick);
       offs.forEach((off) => off());
       window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("deviceorientation", onTilt);
       watch.kill();
       observer.disconnect();
       renderer.dispose();

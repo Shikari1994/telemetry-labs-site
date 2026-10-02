@@ -1,4 +1,5 @@
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { pace as follow } from "@/lib/motion/pace";
 import { clamp, easeInCubic, easeInOut, easeOutCubic, mix } from "@/lib/mascot/math";
 import { GLASS_WIDE } from "@/lib/mascot/hd";
 import { HEAD_CENTER_Y, PEEK_DEPTH, PEEK_HIDE } from "@/lib/mascot/model";
@@ -104,7 +105,35 @@ function closeup(width: number, height: number) {
   return { k, x: width * 0.5 + k * 1.2, y: height * 0.3 };
 }
 
-type ResolvedStation = { def: StationDef; el: HTMLElement; enter: ScrollTrigger | null; leave: ScrollTrigger | null };
+/**
+ * Scroll says where a station's flights should be; time says how fast they
+ * may get there. Each station keeps its own `enter` and `leave` progress that
+ * follow the scroll's, no faster than a flight takes (`ENTER_SECONDS`,
+ * `LEAVE_SECONDS`), so a flick of the wheel does not make it flash by. The
+ * station on stage keeps it until it is off, then the next one takes it.
+ * The opening hero is the intro's and its way out is the transit's, so it
+ * follows the scroll as it is.
+ */
+const ENTER_SECONDS = 1.25;
+const LEAVE_SECONDS = 0.95;
+
+type Pace = { enter: number; leave: number };
+type ResolvedStation = {
+  def: StationDef;
+  el: HTMLElement;
+  enter: ScrollTrigger | null;
+  leave: ScrollTrigger | null;
+  pace: Pace;
+  paced: boolean;
+};
+
+const onStage = ({ pace }: ResolvedStation) => pace.enter > 0 && pace.leave < 1;
+
+/* A station whose element has scrolled out of the screen is not seen leaving. */
+function inView(el: HTMLElement, height: number) {
+  const box = el.getBoundingClientRect();
+  return box.bottom > -200 && box.top < height + 200;
+}
 type ResolvedCameo = { def: CameoDef; range: ScrollTrigger; along: HTMLElement };
 
 const progress = (scroll: number, range: Range) =>
@@ -126,6 +155,8 @@ export function createDirector(route: RouteDef) {
         el,
         enter: def.enter ? measure(enterOn, def.enter) : null,
         leave: def.leave ? measure(leaveOn, def.leave) : null,
+        pace: { enter: 0, leave: 0 },
+        paced: Boolean(def.enter) && def.exit !== "down",
       },
     ];
   });
@@ -136,6 +167,9 @@ export function createDirector(route: RouteDef) {
     if (!trigger || !along) return [];
     return [{ def, range: measure(trigger, [def.start, def.end]), along }];
   });
+
+  let seeded = false;
+  let holder = -1;
 
   function placeOpening(station: ResolvedStation, intro: Intro, width: number, height: number): Placement {
     const spot = placeStation(station, 1, 0, width, height);
@@ -346,22 +380,74 @@ export function createDirector(route: RouteDef) {
         done: el.querySelector(parcel.done),
       };
     },
-    /** The intro stands in for the enter range of stations without one. */
-    evaluate(scroll: number, width: number, height: number, intro: Intro): Placement {
-      // The later station wins while two overlap, so the hand-off moves forward.
-      for (let i = stations.length - 1; i >= 0; i -= 1) {
-        const station = stations[i];
-        if (!station.enter && station.def.opening && intro.shown && intro.p < 1) {
-          return placeOpening(station, intro, width, height);
-        }
+    /** The intro stands in for the enter range of stations without one. `dt`
+        (seconds) paces the flights: see `Pace`. */
+    evaluate(scroll: number, width: number, height: number, intro: Intro, dt = 0): Placement {
+      const goals = stations.map((station) => {
         const enter = station.enter ? progress(scroll, station.enter) : intro.shown ? intro.p : 0;
         const leave = station.leave ? progress(scroll, station.leave) : 0;
-        if (enter > 0 && leave < 1) return placeStation(station, enter, leave, width, height);
+        const opening = !station.enter && Boolean(station.def.opening) && intro.shown && intro.p < 1;
+        return { enter, leave, opening, wants: opening || (enter > 0 && leave < 1) };
+      });
+      // The later station wins while two overlap, so the hand-off moves forward.
+      const wanted = goals.map((goal) => goal.wants).lastIndexOf(true);
+
+      if (!seeded) {
+        // First frame (or a rebuilt route): stand where the scroll says, no flight.
+        seeded = true;
+        stations.forEach((station, i) => {
+          station.pace.enter = goals[i].enter;
+          station.pace.leave = goals[i].leave;
+        });
+        holder = wanted;
       }
-      for (const cameo of cameos) {
-        const p = progress(scroll, cameo.range);
-        if (p > 0 && p < 1) return placeCameo(cameo, p);
+
+      // The station on stage keeps it until it is off, so a flick of the wheel
+      // cannot cut a flight in half; the one that wants it waits its turn.
+      if (holder >= 0 && holder !== wanted && !(stations[holder].paced && onStage(stations[holder]) && inView(stations[holder].el, height)))
+        holder = -1;
+      // A seam's cameo takes the stage as soon as no station wants it: it is
+      // scrubbed on the bar and must not wait for a flight's long tail.
+      const cameo = wanted < 0 ? cameos.find((c) => progress(scroll, c.range) > 0 && progress(scroll, c.range) < 1) : undefined;
+      if (cameo) holder = -1;
+      if (holder < 0) holder = wanted;
+
+      stations.forEach((station, i) => {
+        const goal = goals[i];
+        const { pace } = station;
+        if (!station.paced) {
+          pace.enter = goal.enter;
+          pace.leave = goal.leave;
+        } else if (i !== holder) {
+          // Off stage it stands where the scroll would put it.
+          pace.leave = goal.leave >= 1 ? 1 : 0;
+          pace.enter = goal.leave > 0 ? 1 : 0;
+        } else {
+          const away = wanted > holder;
+          let enterGoal = goal.enter;
+          let leaveGoal = goal.leave;
+          if (away) {
+            // Another station is next: finish the flight in progress and go.
+            enterGoal = 1;
+            leaveGoal = 1;
+          }
+          // Missed before it got there: back out the way it came in.
+          if (leaveGoal >= 1 && pace.enter < 1 && pace.leave <= 0) {
+            enterGoal = 0;
+            leaveGoal = 0;
+          }
+          const arriving = pace.enter < 1;
+          pace.enter = follow(pace.enter, pace.leave > 0 ? 1 : enterGoal, dt, ENTER_SECONDS);
+          pace.leave = follow(pace.leave, arriving ? 0 : leaveGoal, dt, LEAVE_SECONDS);
+        }
+      });
+
+      if (holder >= 0) {
+        const station = stations[holder];
+        if (goals[holder].opening && holder === wanted) return placeOpening(station, intro, width, height);
+        if (onStage(station)) return placeStation(station, station.pace.enter, station.pace.leave, width, height);
       }
+      if (cameo) return placeCameo(cameo, progress(scroll, cameo.range));
       return { visible: false };
     },
   };

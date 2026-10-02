@@ -295,6 +295,8 @@ export type Pose = { x: number; y: number; z: number; yaw: number; pitch: number
 export type Stretch = {
   build: (seed: number, label: string, theme: TransitTheme) => Float32Array;
   camera: (p: number) => Pose;
+  /** The shortest time (s) the camera may take over the whole stretch, however fast the page is scrolled. */
+  seconds: number;
   portal: readonly V3[];
   fog: [number, number];
   route?: (p: number) => number;

@@ -174,13 +174,19 @@ export function Mascot() {
       pointer = null;
       hovered = null;
     };
-    /* What the cursor is over, for the station's aim. */
+    /* What the cursor is over, for the station's aim; on a touch screen what
+       was tapped, while it is being looked at. */
     let hovered: Element | null = null;
+    let tapped: Element | null = null;
     const onOver = (event: PointerEvent) => {
       hovered = event.pointerType === "mouse" && event.target instanceof Element ? event.target : null;
     };
+    const onTap = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse") tapped = event.target instanceof Element ? event.target : null;
+    };
     window.addEventListener("pointermove", onPointer, { passive: true });
     window.addEventListener("pointerdown", onPointer, { passive: true });
+    window.addEventListener("pointerdown", onTap, { passive: true });
     document.addEventListener("pointerover", onOver, { passive: true });
     document.documentElement.addEventListener("pointerleave", onLeave);
 
@@ -355,7 +361,7 @@ export function Mascot() {
         introTimeline.totalTime(introTimeline.totalTime() + dt * introSpeed, false);
       }
 
-      let place = director.evaluate(window.scrollY, width, height, intro);
+      let place = director.evaluate(window.scrollY, width, height, intro, dt);
       // After a dive it stays inside the screen until the hero is left, or
       // until the page is back at rest on the hero (a jump that went nowhere).
       if (divedAt) {
@@ -450,7 +456,12 @@ export function Mascot() {
            pointed out for a moment whenever it changes. */
         const aim = riding ? null : place.aim;
         const focused = document.activeElement;
-        const hot = aim ? (hovered?.closest(aim.select) ?? (focused !== document.body ? focused?.closest(aim.select) : null)) : null;
+        const touched = now < lookUntil ? tapped : null;
+        const hot = aim
+          ? (hovered?.closest(aim.select) ??
+            touched?.closest(aim.select) ??
+            (focused !== document.body ? focused?.closest(aim.select) : null))
+          : null;
         const actives = aim?.active ? document.querySelectorAll(aim.active) : null;
         const active = actives?.length ? actives[actives.length - 1] : null;
         if (active !== current) {
@@ -540,6 +551,7 @@ export function Mascot() {
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", onPointer);
       window.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("pointerdown", onTap);
       document.removeEventListener("pointerover", onOver);
       document.documentElement.removeEventListener("pointerleave", onLeave);
       window.removeEventListener("telemetry:ready", playIntro);

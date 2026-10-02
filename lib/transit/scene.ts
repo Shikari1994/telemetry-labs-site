@@ -326,6 +326,7 @@ function flightGuide(p: number, cam: Pose): Guide | null {
 const flight: Stretch = {
   build: buildFlight,
   camera: flightCamera,
+  seconds: 2.2,
   guide: flightGuide,
   portal: gateOpening(0, -LENGTH),
   fog: [18, 70],

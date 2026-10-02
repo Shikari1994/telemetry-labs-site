@@ -19,6 +19,8 @@ const PACKET_REST = 0.6;
 const TRAIL = 3;
 const TRAIL_GAP = 4;
 const PING_MS = 220;
+/** The log's idle line where there is no cursor to hover with. */
+const TOUCH_HINT = "> Коснитесь микросхемы, чтобы узнать, что она делает";
 
 const chipCount = stackZones.reduce((sum, zone) => sum + zone.chips.length, 0);
 const ref = (n: number) => `U${String(n).padStart(2, "0")}`;
@@ -44,10 +46,10 @@ const area = ({ x, y, w, h }: { x: number; y: number; w: number; h: number }) =>
  * desktop and, on one scrub, tilts the board in, drops the chips into their
  * sockets in the data's order and lights the traces between seated chips
  * (`is-building`, `is-ready`). This component only runs what is not on the
- * scrub: the note of the chip under the cursor, and packets running the
+ * scrub: the note of the chip under the cursor (or tapped), and packets running the
  * routes once the board is ready, on the GSAP ticker while it is on screen.
  * Under reduced motion or without JavaScript every chip is seated and still;
- * phones read the board as a list by zone.
+ * phones then read the board as a list by zone.
  */
 export function StackBoard({ head }: { head: ReactNode }) {
   const boardRef = useRef<HTMLDivElement>(null);
@@ -63,6 +65,9 @@ export function StackBoard({ head }: { head: ReactNode }) {
       gsap.utils.toArray<HTMLElement>("[data-chip]", board).map((chip) => [chip.dataset.chip!, chip]),
     );
     const paths = gsap.utils.toArray<SVGPathElement>("[data-trace]", board);
+    const touch = window.matchMedia("(hover: none)").matches;
+    const shipped = note.textContent;
+    if (touch) note.textContent = TOUCH_HINT;
     const idle = note.textContent ?? "";
     let hot: HTMLElement | null = null;
 
@@ -83,13 +88,22 @@ export function StackBoard({ head }: { head: ReactNode }) {
       setHot((event.target as Element).closest<HTMLElement>("[data-chip]"));
     };
     const onLeave = () => setHot(null);
+    // Touch: a tap lights a chip, a second tap (or one off the chips) puts it out.
+    const onTap = (event: MouseEvent) => {
+      if (!touch) return;
+      const chip = (event.target as Element).closest<HTMLElement>("[data-chip]");
+      setHot(chip === hot ? null : chip);
+    };
     plane.addEventListener("pointerover", onOver);
     plane.addEventListener("pointerleave", onLeave);
+    plane.addEventListener("click", onTap);
 
     const cleanup = () => {
       plane.removeEventListener("pointerover", onOver);
       plane.removeEventListener("pointerleave", onLeave);
+      plane.removeEventListener("click", onTap);
       setHot(null);
+      note.textContent = shipped;
     };
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return cleanup;
 
@@ -164,7 +178,7 @@ export function StackBoard({ head }: { head: ReactNode }) {
     <div className="board" ref={boardRef} data-board>
       <div className="boardPin" data-board-pin>
         {head}
-        <div className="boardDock">
+        <div className="boardDock" data-board-dock>
           <div className="tuiWin boardScreen" data-board-screen>
             <p className="tuiWinBar" aria-hidden="true">
               <span>STACK / {chipCount}</span>
@@ -282,7 +296,7 @@ export function StackBoard({ head }: { head: ReactNode }) {
                       <i className="caret" />
                     </li>
                   </ol>
-                  {/* Mouse only: phones list every note under its chip. */}
+                  {/* The note of the chip under the cursor or tapped (StackBoard). */}
                   <p className="boardLogNote" data-board-note>
                     &gt; Наведите курсор на микросхему, чтобы узнать, что она делает
                   </p>

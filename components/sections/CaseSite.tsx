@@ -14,8 +14,9 @@ const total = String(siteShowcase.length).padStart(2, "0");
  * then come its features: the geo-tn.com captures hung on one 3D ring, every
  * one in its own colours. Screens turned away sink into the dark (--lit,
  * written by the scrub); the one in front takes its line of copy. Scrolling
- * turns the ring a screen at a time (MotionProvider pins it on desktop). On
- * desktop with motion a WebGL screen (ShowcaseScene) takes the stage over:
+ * turns the ring a screen at a time (MotionProvider pins the section on
+ * desktop, the stage and its caption under the head on phones). With motion
+ * a WebGL screen (ShowcaseScene) takes the stage over:
  * the capture in front as a slab of voxels that tumbles to the next one on
  * the same scrub; the ring stays laid out under it for the mascot's aim. The
  * markup ships the ring at rest, so reduced motion reads the same.
@@ -38,52 +39,54 @@ export function CaseSite() {
           <CasePassport work="site" />
         </SectionHead>
 
-        <div className="ringStage" data-ring-stage>
-          <ShowcaseScene />
-          <div className="ringCam" data-ring-cam>
-            <div className="ringFloor" aria-hidden="true">
-              <i data-ring-dial />
-            </div>
-            <div className="ring" data-ring-spin style={{ "--step": `${STEP}deg` } as CSSProperties}>
-              {siteShowcase.map((item, index) => (
-                <figure
-                  className={`ringCard${index === 0 ? " is-front" : ""}`}
-                  key={item.slug}
-                  data-ring-card
-                  style={
-                    {
-                      "--i": index,
-                      "--lit": ((1 + Math.cos((index * STEP * Math.PI) / 180)) / 2).toFixed(3),
-                    } as CSSProperties
-                  }
-                >
-                  <AlphaVideo id={item.shot} />
-                  <span className="ringShade" aria-hidden="true" />
-                  <span className="ringHud" aria-hidden="true" />
-                  <figcaption className="ringTag">{item.code}</figcaption>
-                </figure>
-              ))}
+        <div className="ringScene" data-ring-scene>
+          <div className="ringStage" data-ring-stage>
+            <ShowcaseScene />
+            <div className="ringCam" data-ring-cam>
+              <div className="ringFloor" aria-hidden="true">
+                <i data-ring-dial />
+              </div>
+              <div className="ring" data-ring-spin style={{ "--step": `${STEP}deg` } as CSSProperties}>
+                {siteShowcase.map((item, index) => (
+                  <figure
+                    className={`ringCard${index === 0 ? " is-front" : ""}`}
+                    key={item.slug}
+                    data-ring-card
+                    style={
+                      {
+                        "--i": index,
+                        "--lit": ((1 + Math.cos((index * STEP * Math.PI) / 180)) / 2).toFixed(3),
+                      } as CSSProperties
+                    }
+                  >
+                    <AlphaVideo id={item.shot} />
+                    <span className="ringShade" aria-hidden="true" />
+                    <span className="ringHud" aria-hidden="true" />
+                    <figcaption className="ringTag">{item.code}</figcaption>
+                  </figure>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="ringInfo">
-          <ol className="ringList">
-            {siteShowcase.map((item, index) => (
-              <li className={index === 0 ? "is-active" : undefined} key={item.slug} data-ring-item>
-                <span className="ringNo">
-                  {item.code} / {total}
-                </span>
-                <strong>{item.title}</strong>
-                <p>{item.text}</p>
-              </li>
-            ))}
-          </ol>
-          <p className="ringMeter" aria-hidden="true">
-            {siteShowcase.map((item, index) => (
-              <i className={index === 0 ? "is-on" : undefined} key={item.slug} data-ring-tick />
-            ))}
-          </p>
+          <div className="ringInfo">
+            <ol className="ringList">
+              {siteShowcase.map((item, index) => (
+                <li className={index === 0 ? "is-active" : undefined} key={item.slug} data-ring-item>
+                  <span className="ringNo">
+                    {item.code} / {total}
+                  </span>
+                  <strong>{item.title}</strong>
+                  <p>{item.text}</p>
+                </li>
+              ))}
+            </ol>
+            <p className="ringMeter" aria-hidden="true">
+              {siteShowcase.map((item, index) => (
+                <i className={index === 0 ? "is-on" : undefined} key={item.slug} data-ring-tick />
+              ))}
+            </p>
+          </div>
         </div>
       </div>
       <SectionOffer offer="site" />

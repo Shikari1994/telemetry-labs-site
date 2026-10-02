@@ -44,6 +44,9 @@
   /* Layout */
   --gutter: 2rem;
   --header-h: 76px;
+  /* The TREE rail's sticky status bar under the header (≤1024px); pinned
+     scenes start below it. */
+  --rail-h: 0px;
   --ease-out: cubic-bezier(0.19, 1, 0.22, 1);
 
   /* Aliases for the dormant secondary routes (styles/legacy-routes.css). */
@@ -1052,10 +1055,10 @@ img {
   height: 70vh;
 }
 .motion-enabled .transit[data-transit-to="drill-monitor"] {
-  height: 100vh;
+  height: 125vh;
 }
 .motion-enabled .transit[data-transit-to="request"] {
-  height: 120vh;
+  height: 150vh;
 }
 .transitScene {
   position: fixed;
@@ -2027,6 +2030,11 @@ img {
   padding-top: 20px;
   background: repeating-linear-gradient(90deg, var(--ink-4) 0 6px, transparent 6px 10px) 0 0 / 100% 4px no-repeat;
 }
+/* On desktop the pin wraps the whole section; phones pin only the stage and
+   its caption under the head (MotionProvider), so there it is a box. */
+.ringScene {
+  display: contents;
+}
 /* One beat at a time: the items share a cell and the active one wipes in. */
 .ringList {
   display: grid;
@@ -2090,7 +2098,7 @@ img {
   .motion-enabled .ringPin {
     display: flex;
     flex-direction: column;
-    height: calc(100svh - var(--header-h) - 24px);
+    height: calc(100svh - var(--header-h) - var(--rail-h) - 24px);
     min-height: 500px;
   }
   .motion-enabled .ringPin .blockHead {
@@ -2316,7 +2324,7 @@ img {
   .motion-enabled .viewerPin {
     display: flex;
     flex-direction: column;
-    height: calc(100svh - var(--header-h) - 24px);
+    height: calc(100svh - var(--header-h) - var(--rail-h) - 24px);
     min-height: 560px;
   }
   .motion-enabled .viewerPin .blockHead {
@@ -2332,20 +2340,26 @@ img {
   .motion-enabled .viewerList li:not(.is-active) .viewerRow:not(:hover, :focus-visible) {
     opacity: 0.42;
   }
-  .motion-enabled .viewerList li.is-active .viewerRow {
-    background-color: var(--ink);
-    color: var(--bg);
-  }
-  .motion-enabled .viewerList li.is-active :is(.viewerCode, .viewerLine) {
-    color: var(--sticker-ink-2);
-  }
-  .motion-enabled .viewerList li.is-active .viewerNo {
-    color: var(--accent-deep);
-  }
   /* Only the channel on screen opens its line. */
   .motion-enabled .viewerList li:not(.is-active) .viewerLine {
     display: none;
   }
+}
+/* The channel on screen is the inverted selection bar. */
+.motion-enabled .viewerList li.is-active .viewerRow {
+  background-color: var(--ink);
+  color: var(--bg);
+}
+.motion-enabled .viewerList li.is-active :is(.viewerCode, .viewerLine) {
+  color: var(--sticker-ink-2);
+}
+.motion-enabled .viewerList li.is-active .viewerNo {
+  color: var(--accent-deep);
+}
+/* On desktop the pin wraps the whole section; phones pin only the scene
+   under the head (MotionProvider), so there the wrapper is a box. */
+.viewerScene {
+  display: contents;
 }
 
 /* Without the pin the captures lie flat in a snapping row and every channel
@@ -2603,8 +2617,9 @@ img {
 }
 
 /* 06 Stack: the circuit board -------------------------------------------- */
-/* Phones (and the markup as shipped) read the board as a list by zone: each
-   chip a row with its note. From 761px it becomes the board: a CSS 3D plane
+/* Phones without motion (and the markup as shipped there) read the board as
+   a list by zone: each chip a row with its note. From 761px, and on phones
+   with motion, it becomes the board: a CSS 3D plane
    on a COLS x ROWS grid, chips as raised packages in sockets, traces in an
    SVG on the plane. MotionProvider tilts it in and seats the chips on one
    scrub (--tilt, --rz, --zoom on the plane; --lift on each chip).
@@ -2708,7 +2723,10 @@ img {
   background: var(--c);
 }
 
-@media (min-width: 761px) {
+/* Phones get the board too when it moves (motion on, script running): the
+   camera rides over it chip by chip (MotionProvider); without motion the
+   chips are too small to read there, so the list stays. */
+@media (min-width: 761px), (prefers-reduced-motion: no-preference) and (scripting: enabled) {
   .boardStage {
     display: flex;
     flex-direction: column;
@@ -2719,7 +2737,7 @@ img {
   .motion-enabled .boardPin {
     display: flex;
     flex-direction: column;
-    height: calc(100svh - var(--header-h) - 24px);
+    height: calc(100svh - var(--header-h) - var(--rail-h) - 24px);
     min-height: 600px;
   }
   .motion-enabled .boardPin .blockHead {
@@ -2826,6 +2844,9 @@ img {
     --tilt: 36deg;
     --rz: 0deg;
     --zoom: 1;
+    /* The camera's aim on phones, in cells from the board's centre. */
+    --pan-x: 0;
+    --pan-y: 0;
     position: relative;
     display: grid;
     grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
@@ -2837,7 +2858,8 @@ img {
       radial-gradient(circle, rgba(250, 249, 245, 0.13) 0.9px, transparent 1.3px) 0 0 / var(--cell) var(--cell),
       var(--bg-raised);
     transform-style: preserve-3d;
-    transform: translateY(calc(var(--cell) * -1.2)) rotateX(var(--tilt)) rotateZ(var(--rz)) scale(var(--zoom));
+    transform: translateY(calc(var(--cell) * -1.2)) rotateX(var(--tilt)) rotateZ(var(--rz)) scale(var(--zoom))
+      translate(calc(var(--pan-x) * var(--cell)), calc(var(--pan-y) * var(--cell)));
   }
   /* The board's thickness, hanging under its front and right edges. */
   .boardEdge {
@@ -3713,6 +3735,7 @@ img {
 @media (max-width: 1024px) {
   :root {
     --header-h: 64px;
+    --rail-h: 42px;
   }
   /* Too narrow for the pinned heads' third column: the lead drops under
      the headline. */
@@ -3783,9 +3806,6 @@ img {
   .homeFrame {
     display: block;
   }
-  .bus {
-    display: none;
-  }
   .rail {
     position: sticky;
     top: var(--header-h);
@@ -3814,7 +3834,8 @@ img {
     justify-content: space-between;
     gap: 14px;
     width: 100%;
-    padding: 12px var(--gutter);
+    height: calc(var(--rail-h) - 2px);
+    padding: 0 var(--gutter);
     border: 0;
     background: none;
     font: 500 13px/1.2 var(--mono);
@@ -3910,10 +3931,10 @@ img {
     height: 50vh;
   }
   .motion-enabled .transit[data-transit-to="drill-monitor"] {
-    height: 70vh;
+    height: 85vh;
   }
   .motion-enabled .transit[data-transit-to="request"] {
-    height: 85vh;
+    height: 105vh;
   }
   .brandText {
     font-size: 15px;
@@ -4042,26 +4063,40 @@ img {
     height: max(250px, 66vw);
   }
   .ringCam {
-    --ring-w: 50cqw;
+    --ring-w: min(62cqw, 100cqh);
   }
   .ringInfo {
     grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
   }
-  .ringList {
+  /* Nothing turns the ring without motion: every beat is listed. */
+  html:not(.motion-enabled) .ringList {
+    grid-template-columns: minmax(0, 1fr);
     gap: 16px;
   }
-  .ringList li {
+  html:not(.motion-enabled) .ringList li {
     grid-area: auto;
     visibility: visible;
   }
-  .ringList li.is-active {
-    animation: none;
-  }
-  .motion-enabled .ringList li:not(.is-active) {
-    opacity: 0.45;
-  }
-  .ringMeter {
+  html:not(.motion-enabled) .ringMeter {
     display: none;
+  }
+  /* Pinned on phones too: the head scrolls by, then the stage and the
+     caption of the screen in front hold one screen. */
+  .motion-enabled .ringScene {
+    display: flex;
+    flex-direction: column;
+    height: calc(100svh - var(--header-h) - var(--rail-h) - 24px);
+    min-height: 440px;
+  }
+  .motion-enabled .ringScene .ringStage {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 220px;
+  }
+  .motion-enabled .ringScene .ringInfo {
+    margin-top: 10px;
+    padding-top: 14px;
   }
   .layers {
     grid-template-columns: minmax(0, 1fr);
@@ -4072,16 +4107,18 @@ img {
   .layersIso {
     --s: min(54cqw, 210px);
   }
-  /* The viewer loses the pin: the captures lie flat in a native, snapping
-     row above the full channel list. */
   .viewer {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: none;
   }
   .viewerWin {
     padding: 26px 10px 12px;
   }
-  .viewerStage {
+  /* Without motion the captures lie flat in a native, snapping row above
+     the full channel list. */
+  html:not(.motion-enabled) .viewer {
+    grid-template-rows: none;
+  }
+  html:not(.motion-enabled) .viewerStage {
     display: flex;
     gap: 12px;
     min-height: 0;
@@ -4092,10 +4129,10 @@ img {
     perspective: none;
     background: none;
   }
-  .viewerStage::-webkit-scrollbar {
+  html:not(.motion-enabled) .viewerStage::-webkit-scrollbar {
     display: none;
   }
-  .viewerShot {
+  html:not(.motion-enabled) .viewerShot {
     position: relative;
     left: auto;
     bottom: auto;
@@ -4105,7 +4142,7 @@ img {
     box-shadow: none;
     scroll-snap-align: start;
   }
-  .viewerStatus {
+  html:not(.motion-enabled) .viewerStatus {
     display: none;
   }
   .viewerList {
@@ -4114,14 +4151,90 @@ img {
   .viewerRow {
     grid-template-columns: 38px minmax(0, 1fr);
     gap: 12px;
-    padding: 14px 14px 15px;
+    padding: 12px 14px 13px;
   }
   .viewerNo,
   .viewerText strong {
-    font-size: 22px;
+    font-size: 20px;
   }
   .viewerLine {
     display: block;
+  }
+  /* Pinned on phones too: the head scrolls by, then the window with its 3D
+     stack, the channel on screen and the status bar hold one screen. */
+  .motion-enabled .viewerScene {
+    display: flex;
+    flex-direction: column;
+    height: calc(100svh - var(--header-h) - var(--rail-h) - 24px);
+    min-height: 480px;
+  }
+  .motion-enabled .viewer {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 12px;
+  }
+  .motion-enabled .viewerStage {
+    min-height: 0;
+  }
+  .motion-enabled .viewerList li {
+    grid-area: 1 / 1;
+    visibility: hidden;
+  }
+  .motion-enabled .viewerList li.is-active {
+    visibility: visible;
+    animation: ring-copy 0.4s steps(8) both;
+  }
+  .motion-enabled .viewerStatus {
+    margin-top: 12px;
+  }
+  /* The board on phones: the head scrolls by and only the dock is pinned,
+     one screen tall, with the glass as wide as the column; the camera rides
+     over the board chip by chip (MotionProvider), so legend and log are
+     kept to a line or two. */
+  .motion-enabled .boardPin {
+    display: grid;
+    height: auto;
+    min-height: 0;
+  }
+  .motion-enabled .boardDock {
+    flex: none;
+    height: calc(100svh - var(--header-h) - var(--rail-h) - 24px);
+    min-height: 420px;
+  }
+  .motion-enabled .boardScreen {
+    --sw: min(100cqw, 112cqh);
+  }
+  .motion-enabled .boardScreenView {
+    gap: 4px;
+  }
+  .motion-enabled .boardLegend {
+    flex-wrap: nowrap;
+    gap: 12px;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .motion-enabled .boardLegend span {
+    gap: 5px;
+  }
+  .motion-enabled .boardLegend i {
+    width: 8px;
+    height: 8px;
+  }
+  .motion-enabled .boardLog {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+    height: auto;
+    padding: 4px 6px 2px;
+    font-size: 10px;
+    line-height: 13px;
+  }
+  .motion-enabled .boardLogLines {
+    height: 13px;
+  }
+  .motion-enabled .boardLogNote {
+    min-height: 26px;
   }
   .terminalForm {
     grid-template-columns: minmax(0, 1fr);

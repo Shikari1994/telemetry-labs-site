@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { pace } from "@/lib/motion/pace";
 import { project, ride } from "@/lib/transit/guide";
 import { createTransitRenderer } from "@/lib/transit/renderer";
 import { transitStretch } from "@/lib/transit/scene";
@@ -15,6 +16,8 @@ const BLOCK = 2;
 const RUSH = 1.6;
 /** Share of the viewport the page peels off the board before the camera sets off. */
 const LEAD = 0.4;
+/** Far behind the scroll (after a jump), the camera closes the gap at no less than gap / CATCH_UP per second. */
+const CATCH_UP = 1.2;
 
 /**
  * The 3D passages between sections. A `[data-transit]` spacer is a stretch
@@ -25,7 +28,11 @@ const LEAD = 0.4;
  * moves the way the stretch for the section ahead says (a flight along the
  * board, a bore down through it, a rise over all of it), past things that
  * belong to that section, to a see-through opening that holds the real
- * section and fills the screen as the camera goes in.
+ * section and fills the screen as the camera goes in. The page's peel follows
+ * the scroll exactly; the camera follows it at the stretch's own pace
+ * (`seconds`, lib/motion/pace), so a flick of the wheel cannot run it
+ * through, and a transit left at its far end keeps the screen until the
+ * camera is through the portal.
  *
  * One canvas and one renderer serve all transits; the board for each is
  * built on first use. The scrub is the spacer's own ScrollTrigger, frames are
@@ -84,6 +91,7 @@ export function TransitScene() {
     let lastProgress = 0;
     let lastAt = 0;
     let rush = 0;
+    let flown = 0;
     const startedAt = performance.now();
     const tick = () => {
       const now = performance.now();
@@ -94,6 +102,7 @@ export function TransitScene() {
       progress.forEach((p, index) => {
         if (p > 0 && p < 1 && (active < 0 || Math.abs(p - 0.5) < Math.abs(progress[active] - 0.5))) active = index;
       });
+      if (active < 0 && last >= 0 && progress[last] >= 1 && flown < 1) active = last;
       if (active < 0) {
         ride.visible = false;
         if (shown) {
@@ -108,8 +117,6 @@ export function TransitScene() {
       // Scroll speed through the transit, eased so the lens breathes rather than twitches.
       const speed = active === last && dt > 0 ? Math.abs(p - lastProgress) / dt / RUSH : 0;
       rush += (Math.min(1, speed) - rush) * (1 - Math.exp(-dt * 5));
-      last = active;
-      lastProgress = p;
       if (!shown) {
         canvas.style.visibility = "visible";
         shown = true;
@@ -121,11 +128,16 @@ export function TransitScene() {
       // The camera holds until the page has peeled part way off the board,
       // then flies the rest of the stretch.
       const lead = Math.min(0.5, (LEAD * window.innerHeight) / span);
-      const flight = Math.min(1, Math.max(0, (p - lead) / (1 - lead)));
+      const goal = Math.min(1, Math.max(0, (p - lead) / (1 - lead)));
       const { transit: label = "", transitTo: to = "" } = spacers[active].dataset;
-      const frame = renderer.draw(active, label, to, flight, edge, rush, (now - startedAt) / 1000);
+      const stretch = transitStretch(to);
+      // A transit coming on screen starts where the scroll has it.
+      flown = active === last ? pace(flown, goal, dt, stretch.seconds, CATCH_UP) : goal;
+      last = active;
+      lastProgress = p;
+      const frame = renderer.draw(active, label, to, flown, edge, rush, (now - startedAt) / 1000);
 
-      const guide = transitStretch(to).guide?.(flight, frame.cam) ?? null;
+      const guide = stretch.guide?.(flown, frame.cam) ?? null;
       const width = window.innerWidth;
       const height = window.innerHeight;
       const focal = height / 2 / Math.tan(frame.fov / 2);

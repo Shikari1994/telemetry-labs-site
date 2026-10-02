@@ -272,6 +272,7 @@ function guide(p: number, cam: Pose): Guide | null {
 export const drill: Stretch = {
   build,
   camera,
+  seconds: 3.2,
   guide,
   portal: gateOpening(FLOOR, GATE_Z),
   fog: [14, 62],

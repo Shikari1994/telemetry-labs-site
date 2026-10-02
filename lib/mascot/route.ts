@@ -23,6 +23,7 @@
  */
 
 import { ISLAND_CAMERA } from "@/lib/hero/island";
+import { SIGNAL_LINE } from "@/lib/motion/bus";
 
 export type Pose = "hover" | "sit" | "peek";
 
@@ -97,13 +98,13 @@ export type CameoDef = {
 
 export type RouteDef = { stations: StationDef[]; cameos: CameoDef[] };
 
-/* Seams fill their bar over this scrub (MotionProvider). */
+/* Seams fill their bar over this scrub (MotionProvider): it lands just before the signal line. */
 const seam = (index: number, scale: number): CameoDef => ({
   id: `seam-${index}`,
   trigger: "[data-seam]",
   index,
   start: "top 94%",
-  end: "bottom 82%",
+  end: `bottom ${SIGNAL_LINE * 100 + 4}%`,
   along: ".seamBar",
   span: [0.2, 0.9],
   scale,
@@ -223,7 +224,7 @@ const desktop: RouteDef = {
       pose: "sit",
       ax: 0.5,
       scale: 6,
-      enter: ["top 100%", "top 72%"],
+      enter: ["top 100%", "top 50%"],
       leave: null,
       halts: true,
     },
@@ -231,17 +232,31 @@ const desktop: RouteDef = {
   cameos: [seam(0, 5), seam(1, 5)],
 };
 
-const [hero, programs, , monitor, , , request, footer] = desktop.stations;
+const [hero, programs, ring, monitor, screens, stack, request, footer] = desktop.stations;
 
-/* Phones: no pins, so the ring, the viewer and the stack's screen scroll by
-   as plain rows and the mascot skips them (the board is a list by zone).
-   Above the form there is only room to peek. */
+/* Phones: the same route, smaller. The ring, the viewer and the board pin
+   only their scene under the head there, so the mascot is glued to the same
+   elements and comes along; it flies in as the scene comes up under the
+   head (a phone's head is a screen tall on its own). Above the form there
+   is only room to peek. */
 const mobile: RouteDef = {
   stations: [
     hero,
     { ...programs, index: 0, ax: 0.72, scale: 4.5 },
+    { ...ring, ax: 0.9, scale: 4.5, enter: ["top 100%", "top 55%"], enterOn: "[data-ring-scene]" },
     // The stack fills the stage here; it stands in the free corner under it.
     { ...monitor, ax: 0.86, ay: 0.98, scale: 4.5, leave: ["top 0%", "top -20%"] },
+    // The window's top edge is right under the status bar here: it sits on
+    // the channel bar under the window instead.
+    {
+      ...screens,
+      select: ".viewerList",
+      ax: 0.88,
+      scale: 4.5,
+      enter: ["top 100%", "top 55%"],
+      enterOn: "[data-viewer-scene]",
+    },
+    { ...stack, scale: 4.5, enterOn: "[data-board-dock]" },
     { ...request, pose: "peek", ax: 0.8, scale: 4.5, occlude: true, parcel: { dx: -13, done: ".terminalDone" } },
     { ...footer, scale: 4.5 },
   ],

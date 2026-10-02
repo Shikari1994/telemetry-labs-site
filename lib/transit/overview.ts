@@ -277,6 +277,7 @@ function guide(p: number, cam: Pose): Guide | null {
 export const overview: Stretch = {
   build,
   camera,
+  seconds: 4,
   guide,
   portal: PORTAL,
   fog: [70, 160],
